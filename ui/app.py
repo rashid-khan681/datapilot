@@ -2034,11 +2034,13 @@ def launch_ui():
                 with gr.Tabs(elem_id="input-tabs"):
                     with gr.TabItem("1. Local Dataset", id="local-input-tab"):
                         with gr.Column(elem_classes=["upload-card-wrapper"]):
+                            default_file = os.path.join(WORKSPACE_ROOT, "uploads", "titanic.csv")
                             dataset_input = gr.File(
                                 label="Upload Dataset (CSV)",
                                 file_types=[".csv"],
-                                value=os.path.join(WORKSPACE_ROOT, "uploads", "titanic.csv")
+                                value=default_file if os.path.exists(default_file) else None
                             )
+
 
                     with gr.TabItem("1. Search & Import Kaggle", id="kaggle-input-tab"):
                         with gr.Column(elem_classes=["kaggle-card-wrapper"]):

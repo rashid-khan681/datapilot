@@ -85,8 +85,8 @@ def train_model(file_path: str, target: str | None = None, test_file_path: str |
 
 def get_model():
     return Gemini(
-        model="gemini-2.0-flash",
-        retry_options=types.HttpRetryOptions(attempts=3),
+        model="gemini-1.5-flash",
+        retry_options=types.HttpRetryOptions(attempts=1),
     )
 
 ml_agent = Agent(

@@ -356,8 +356,8 @@ def save_report_both(markdown_content: str) -> dict:
 
 def get_model():
     return Gemini(
-        model="gemini-2.0-flash",
-        retry_options=types.HttpRetryOptions(attempts=3),
+        model="gemini-1.5-flash",
+        retry_options=types.HttpRetryOptions(attempts=1),
     )
 
 report_agent = Agent(

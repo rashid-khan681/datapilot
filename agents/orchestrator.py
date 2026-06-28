@@ -22,9 +22,11 @@ from .review_agent import review_agent
 
 
 def get_model():
+    """Return the best available Gemini model based on quota availability.
+    Prefers gemini-1.5-flash (higher free-tier RPM) over gemini-2.0-flash."""
     return Gemini(
-        model="gemini-2.0-flash",
-        retry_options=types.HttpRetryOptions(attempts=3),
+        model="gemini-1.5-flash",
+        retry_options=types.HttpRetryOptions(attempts=1),
     )
 
 # Orchestrator ADK Agent (Backwards compatible interface)
@@ -421,17 +423,30 @@ async def execute_agent(agent, inputs: dict) -> Any:
 
         except Exception as e:
             is_timeout = isinstance(e, asyncio.TimeoutError)
+            err_str = str(e)
+
+            # Detect 429 quota exhaustion — skip retry immediately, go to local fallback
+            is_quota_exhausted = (
+                "429" in err_str
+                or "RESOURCE_EXHAUSTED" in err_str
+                or "exceeded your current quota" in err_str
+                or "free_tier" in err_str
+            )
+
             err_type = "Timeout" if is_timeout else "Error"
 
             retry_count += 1
-            if retry_count <= max_retries:
+            if retry_count <= max_retries and not is_quota_exhausted:
                 warning_msg = f"{err_type} in {agent_name}: {e!s}. Initiating auto-retry {retry_count}/{max_retries}..."
                 pipeline_tracker.add_warning(agent_name, warning_msg)
                 send_status(warning_msg, "warning")
                 # Brief sleep before retry
-                await asyncio.sleep(1.0)
+                await asyncio.sleep(2.0)
             else:
-                error_msg = f"Agent {agent_name} failed: {e!s}. Triggering local tools fallback..."
+                if is_quota_exhausted:
+                    error_msg = f"Gemini API free-tier quota exhausted for {agent_name}. Switching to local pipeline..."
+                else:
+                    error_msg = f"Agent {agent_name} failed: {e!s}. Triggering local tools fallback..."
                 live_logger.log("WARNING", agent_name, error_msg)
                 send_status("GenAI offline. Running local agent fallback...", "warning")
 

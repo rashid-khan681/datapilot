@@ -74,8 +74,8 @@ def run_security_review(file_path: str, target: str | None = None, code: str | N
 
 def get_model():
     return Gemini(
-        model="gemini-2.0-flash",
-        retry_options=types.HttpRetryOptions(attempts=3),
+        model="gemini-1.5-flash",
+        retry_options=types.HttpRetryOptions(attempts=1),
     )
 
 review_agent = Agent(

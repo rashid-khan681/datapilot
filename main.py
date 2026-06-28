@@ -25,12 +25,12 @@ def main():
         elif command == "cli":
             # Run Typer CLI
             from cli.datapilot_cli import cli_app
-            sys.argv = [sys.argv[0]] + sys.argv[2:]
+            sys.argv = [sys.argv[0], *sys.argv[2:]]
             cli_app()
         elif command == "ui":
             # Run UI
             print(f"Starting DataPilot Gradio Web UI on {default_host}...")
-            from ui.app import launch_ui, WORKSPACE_ROOT
+            from ui.app import WORKSPACE_ROOT, launch_ui
             demo = launch_ui()
             demo.queue().launch(server_name=default_host, server_port=8080, allowed_paths=[WORKSPACE_ROOT])
         else:
@@ -42,7 +42,7 @@ def main():
     else:
         # Default to launching Web UI
         print(f"Starting DataPilot Gradio Web UI on {default_host}...")
-        from ui.app import launch_ui, WORKSPACE_ROOT
+        from ui.app import WORKSPACE_ROOT, launch_ui
         demo = launch_ui()
         demo.queue().launch(server_name=default_host, server_port=8080, allowed_paths=[WORKSPACE_ROOT])
 

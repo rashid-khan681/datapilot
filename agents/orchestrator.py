@@ -1,7 +1,7 @@
-import logging
-import time
 import asyncio
+import logging
 import os
+import time
 from typing import Any
 
 import requests
@@ -52,17 +52,17 @@ class MockAgentOutput:
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
-            
+
     def model_dump(self):
         return self.__dict__
 
 def detect_target_from_goal(goal: str, columns: list[str]) -> str | None:
     if not goal:
         return columns[-1] if columns else None
-        
+
     import difflib
     goal_lower = goal.lower().strip()
-    
+
     # Priority 1: Goal-based matching
     keyword_mapping = {
         "heart": ["heart", "disease"],
@@ -75,14 +75,14 @@ def detect_target_from_goal(goal: str, columns: list[str]) -> str | None:
         "salary": ["salary", "income"],
         "income": ["salary", "income"]
     }
-    
+
     matched_keywords = []
     for key, search_words in keyword_mapping.items():
         if key in goal_lower:
             matched_keywords.extend(search_words)
-            
+
     matched_keywords = list(dict.fromkeys(matched_keywords))
-    
+
     if not matched_keywords:
         import re
         words = re.findall(r'\b\w+\b', goal_lower)
@@ -90,7 +90,7 @@ def detect_target_from_goal(goal: str, columns: list[str]) -> str | None:
         for w in words:
             if w not in stopwords and len(w) > 2:
                 matched_keywords.append(w)
-                
+
     if matched_keywords:
         best_col = None
         best_score = 0.0
@@ -127,15 +127,15 @@ def detect_target_from_goal(goal: str, columns: list[str]) -> str | None:
     # Priority 3: Last column rule
     if columns:
         return columns[-1]
-        
+
     return None
 
 
-def detect_domain_from_columns(columns: list[str], goal: str = None) -> str:
+def detect_domain_from_columns(columns: list[str], goal: str | None = None) -> str:
     columns_lower = [col.lower() for col in columns]
     goal_lower = goal.lower() if goal else ""
     all_text = " ".join(columns_lower) + " " + goal_lower
-    
+
     finance_keywords = ['loan', 'credit', 'default', 'interest', 'income', 'debt', 'bank', 'payment', 'mortgage', 'investment', 'tax', 'balance', 'transaction', 'fraud', 'debit']
     medical_keywords = ['blood', 'pressure', 'cholesterol', 'heart', 'disease', 'patient', 'bmi', 'glucose', 'insulin', 'tumor', 'cancer', 'diagnosis', 'symptoms', 'ecg', 'pulse', 'hemoglobin', 'platelet', 'kidney']
     customer_keywords = ['churn', 'customer', 'order', 'purchase', 'subscription', 'revenue', 'cart', 'spend', 'retention', 'engagement', 'session', 'product', 'sales', 'conversion']
@@ -153,16 +153,15 @@ def detect_domain_from_columns(columns: list[str], goal: str = None) -> str:
         return "HR"
     if any(kw in all_text for kw in education_keywords):
         return "EDUCATION"
-        
+
     return "GENERAL"
 
 def generate_grounded_recommendations(df, target_col, top_features, problem_type, domain, model_name, accuracy):
     import pandas as pd
-    import numpy as np
-    
+
     recommendations = []
     target_name = target_col
-    
+
     # Capitalized term as required
     term = "Customers"
     if domain == "MEDICAL":
@@ -173,7 +172,7 @@ def generate_grounded_recommendations(df, target_col, top_features, problem_type
         term = "Students"
     else:
         term = "Customers"
-        
+
     # Build unique-feature-first list (Bug Fix 1: no repetition)
     feats_to_use = []
     seen = set()
@@ -186,10 +185,10 @@ def generate_grounded_recommendations(df, target_col, top_features, problem_type
         if name and name not in seen:
             feats_to_use.append(name)
             seen.add(name)
-            
+
     if not feats_to_use:
         feats_to_use = [c for c in df.columns if c != target_col][:5]
-    
+
     # Positive/Negative mask for comparing averages
     yes_vals = ["yes", "y", "true", "1", "1.0", "defaulted", "churned", "positive", "sick"]
     if problem_type == "classification" or df[target_col].nunique() == 2:
@@ -199,7 +198,7 @@ def generate_grounded_recommendations(df, target_col, top_features, problem_type
         target_median = df[target_col].median()
         pos_mask = df[target_col] > target_median
         neg_mask = ~pos_mask
-        
+
     if pos_mask.sum() == 0 or neg_mask.sum() == 0:
         pos_mask = pd.Series(True, index=df.index)
         neg_mask = pd.Series(False, index=df.index)
@@ -249,13 +248,13 @@ def generate_grounded_recommendations(df, target_col, top_features, problem_type
         "review compliance standards and regulatory checkups",
         "standardize communication procedures and support protocols"
     ])
-        
+
     for idx, feat in enumerate(feats_to_use):
         action = actions[idx] if idx < len(actions) else actions[-1]
         feat_series = df[feat] if feat in df.columns else None
         pct = 60 + (idx * 7) % 35
         condition = "above threshold"
-        
+
         if feat_series is not None and pd.api.types.is_numeric_dtype(feat_series):
             # Calculate threshold from healthy patients
             threshold = feat_series[neg_mask].median()
@@ -263,22 +262,22 @@ def generate_grounded_recommendations(df, target_col, top_features, problem_type
                 threshold = feat_series.median()
             if pd.isna(threshold):
                 threshold = 0
-                
+
             sick_mean = feat_series[pos_mask].mean()
             healthy_mean = feat_series[neg_mask].mean()
             if pd.isna(sick_mean): sick_mean = 0
             if pd.isna(healthy_mean): healthy_mean = 0
-            
+
             if sick_mean > healthy_mean:
                 direction = "ABOVE"
                 pct_val = (feat_series[pos_mask] > threshold).mean() * 100
             else:
                 direction = "BELOW"
                 pct_val = (feat_series[pos_mask] <= threshold).mean() * 100
-                
+
             if not pd.isna(pct_val) and pct_val > 0:
                 pct = int(pct_val)
-                
+
             threshold_str = f"{int(threshold)}" if float(threshold).is_integer() else f"{threshold:.1f}"
             condition = f"{direction} {threshold_str}"
         elif feat_series is not None:
@@ -288,14 +287,14 @@ def generate_grounded_recommendations(df, target_col, top_features, problem_type
                 pct_val = (feat_series[pos_mask] == mode_val).mean() * 100
                 pct = int(pct_val)
                 condition = f"equal to '{mode_val}'"
-                 
+
         rec = f"{term} where {feat} is {condition} show {pct}% higher risk of {target_name} — {action}."
         recommendations.append(rec)
 
     # Bug Fix 1: Fill remaining slots (when < 5 unique features) with non-repeating slot types
     top_feat = feats_to_use[0] if feats_to_use else target_name
     second_feat = feats_to_use[1] if len(feats_to_use) > 1 else top_feat
-    
+
     # Try to find a healthy/low-risk categorical feature
     healthy_feat = None
     for col in df.columns:
@@ -327,7 +326,7 @@ def generate_grounded_recommendations(df, target_col, top_features, problem_type
 
     top_feature = feats_to_use[0] if feats_to_use else target_name
     bottom_line = f"Bottom Line: {model_name} predicts {target_name} with {accuracy:.0f}% accuracy. The single most important action is to monitor {top_feature} as it is the strongest predictor in your dataset."
-    
+
     # Bug Fix 3: Build real data-driven key business insights
     total_rows = len(df)
     pos_count = int(pos_mask.sum())
@@ -368,7 +367,7 @@ def generate_grounded_recommendations(df, target_col, top_features, problem_type
         f"On the positive side, {neg_pct}% of {term.lower()} in your data show low risk profiles — "
         f"meaning DataPilot can help you focus resources on the {pos_pct}% who need attention most."
     )
-    
+
     return recommendations, bottom_line, key_insights
 
 
@@ -376,7 +375,8 @@ def generate_grounded_recommendations(df, target_col, top_features, problem_type
 async def execute_agent(agent, inputs: dict) -> Any:
     from google.adk.apps import App
     from google.adk.runners import InMemoryRunner
-    from monitoring.monitor import pipeline_tracker, live_logger
+
+    from monitoring.monitor import live_logger, pipeline_tracker
 
     max_retries = 1
     retry_count = 0
@@ -386,7 +386,7 @@ async def execute_agent(agent, inputs: dict) -> Any:
     while retry_count <= max_retries:
         try:
             live_logger.log("INFO", agent_name, f"Executing agent stage (attempt {retry_count + 1}/{max_retries + 1})...")
-            
+
             app = App(root_agent=agent, name=agent_name)
             runner = InMemoryRunner(app=app)
 
@@ -405,24 +405,24 @@ async def execute_agent(agent, inputs: dict) -> Any:
                 try:
                     # Enforce a 30-second timeout on waiting for the next agent event
                     event = await asyncio.wait_for(iterator.__anext__(), timeout=30.0)
-                    
+
                     if event.output:
                         final_output = event.output
-                        
+
                     # Record heartbeat
                     pipeline_tracker.current_agent = agent_name
                     send_status(f"{agent_name} progress heartbeat", "running")
                 except StopAsyncIteration:
                     break
-                    
+
             # Successfully completed
-            live_logger.log("SUCCESS", agent_name, f"Agent stage completed successfully.")
+            live_logger.log("SUCCESS", agent_name, "Agent stage completed successfully.")
             return final_output
 
         except Exception as e:
             is_timeout = isinstance(e, asyncio.TimeoutError)
             err_type = "Timeout" if is_timeout else "Error"
-            
+
             retry_count += 1
             if retry_count <= max_retries:
                 warning_msg = f"{err_type} in {agent_name}: {e!s}. Initiating auto-retry {retry_count}/{max_retries}..."
@@ -433,20 +433,21 @@ async def execute_agent(agent, inputs: dict) -> Any:
             else:
                 error_msg = f"Agent {agent_name} failed: {e!s}. Triggering local tools fallback..."
                 live_logger.log("WARNING", agent_name, error_msg)
-                send_status(f"GenAI offline. Running local agent fallback...", "warning")
-                
+                send_status("GenAI offline. Running local agent fallback...", "warning")
+
                 try:
                     if agent_name == "DataPilot_EDA_Agent":
-                        from mcp_server.tools.eda_tools import run_eda as local_run_eda
-                        from mcp_server.tools.eda_tools import read_dataset_info
                         import pandas as pd
-                        
+
+                        from mcp_server.tools.eda_tools import read_dataset_info
+                        from mcp_server.tools.eda_tools import run_eda as local_run_eda
+
                         eda_data = local_run_eda(inputs["file_path"])
                         eda_data["report"] = read_dataset_info(inputs["file_path"])
-                        
+
                         cols_count = eda_data.get("basic_info", {}).get("columns", 0)
                         rows_count = eda_data.get("basic_info", {}).get("rows", 0)
-                        
+
                         # Intelligently detect target from goal and columns
                         detected_target = None
                         try:
@@ -454,7 +455,7 @@ async def execute_agent(agent, inputs: dict) -> Any:
                             detected_target = detect_target_from_goal(inputs.get("goal", ""), list(df_temp.columns))
                         except Exception:
                             pass
-                            
+
                         if not detected_target:
                             detected_target = eda_data.get("patterns_insights", {}).get("detected_target", "target")
                         else:
@@ -462,14 +463,14 @@ async def execute_agent(agent, inputs: dict) -> Any:
                             if "patterns_insights" not in eda_data:
                                 eda_data["patterns_insights"] = {}
                             eda_data["patterns_insights"]["detected_target"] = detected_target
-                        
+
                         insights = (
                             f"### EDA Analysis Report (Local Fallback)\n"
                             f"• The dataset contains **{rows_count}** rows and **{cols_count}** columns.\n"
                             f"• Auto-detected target variable is **{detected_target}**.\n"
                             f"• Interactive correlation heatmap and distributions generated successfully."
                         )
-                        
+
                         return MockAgentOutput(
                             status="complete",
                             raw_results=eda_data,
@@ -477,50 +478,54 @@ async def execute_agent(agent, inputs: dict) -> Any:
                             warnings=eda_data.get("warnings", []),
                             recommendations=["Proceed with model training", "Handle missing values using median/mode"]
                         )
-                        
+
                     elif agent_name == "DataPilot_ML_Agent":
-                        from mcp_server.tools.ml_tools import train_model as local_train_model
                         import re
+
                         import pandas as pd
-                        
+
+                        from mcp_server.tools.ml_tools import (
+                            train_model as local_train_model,
+                        )
+
                         target = None
                         eda_insights = inputs.get("eda_insights", "")
                         if eda_insights:
                             match = re.search(r"target variable is \*\*(.*?)\*\*", eda_insights)
                             if match:
                                 target = match.group(1)
-                                
+
                         if not target:
                             try:
                                 df_temp = pd.read_csv(inputs["file_path"], nrows=1)
                                 target = detect_target_from_goal(inputs.get("goal", ""), list(df_temp.columns))
                             except Exception:
                                 pass
-                                
+
                         ml_data = local_train_model(
-                            inputs["file_path"], 
-                            target=target, 
-                            goal=inputs.get("goal"), 
+                            inputs["file_path"],
+                            target=target,
+                            goal=inputs.get("goal"),
                             force_continue=inputs.get("force_continue", False)
                         )
-                        
+
                         best_model_name = ml_data.get("best_model_name", "Random Forest")
                         best_scores = ml_data.get("best_model_scores", {})
                         best_metric = best_scores.get("Accuracy") or best_scores.get("F1-Score") or best_scores.get("R2-Score") or 0.8
-                        
+
                         top_features = ml_data.get("top_features", [])[:5]
                         feature_importance_top5 = [{"name": f[0], "importance": float(f[1])} for f in top_features]
-                        
+
                         performance_summary = (
                             f"AutoML evaluated multiple candidate estimators. The winning model is **{best_model_name}** "
                             f"with a validation performance score of **{best_metric}**."
                         )
-                        
+
                         business_insight = (
                             f"The feature **{top_features[0][0] if top_features else 'N/A'}** has the highest predictive power. "
                             f"Target interventions based on this variable are recommended."
                         )
-                        
+
                         return MockAgentOutput(
                             status="complete",
                             model_name=best_model_name,
@@ -530,11 +535,13 @@ async def execute_agent(agent, inputs: dict) -> Any:
                             business_insight=business_insight,
                             predictions_file_path=ml_data.get("saved_files", {}).get("predictions", "")
                         )
-                        
+
                     elif agent_name == "DataPilot_Security_Agent":
-                        from mcp_server.tools.security_tools import review_code as local_review_code
+                        from mcp_server.tools.security_tools import (
+                            review_code as local_review_code,
+                        )
                         sec_data = local_review_code(inputs["file_path"], inputs.get("target"), inputs.get("code"))
-                        
+
                         return MockAgentOutput(
                             status="complete",
                             security_score=int(sec_data.get("score", 100)),
@@ -542,7 +549,7 @@ async def execute_agent(agent, inputs: dict) -> Any:
                             auto_fixes=[iss.get("suggestion", "") for iss in sec_data.get("issues", [])],
                             safe_to_proceed=bool(sec_data.get("safe_to_proceed", True))
                         )
-                        
+
                     elif agent_name == "DataPilot_Report_Agent":
                         eda_sum = inputs.get("eda_summary", "")
                         ml_sum = inputs.get("ml_summary", "")
@@ -550,25 +557,25 @@ async def execute_agent(agent, inputs: dict) -> Any:
                         goal = inputs.get("goal", "")
                         file_path = inputs.get("file_path", "")
                         domain = inputs.get("domain")
-                        
-                        import pandas as pd
+
                         import numpy as np
-                        
+                        import pandas as pd
+
                         WORKSPACE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                         OUTPUTS_DIR = os.path.join(WORKSPACE_ROOT, "outputs")
-                        
+
                         if not domain:
                             try:
                                 df_temp = pd.read_csv(file_path, nrows=1)
                                 domain = detect_domain_from_columns(list(df_temp.columns), goal)
                             except Exception:
                                 domain = "GENERAL"
-                                
+
                         top_features = []
                         model_name = "Random Forest"
                         accuracy = 85.0
                         target_col = None
-                        
+
                         try:
                             import joblib
                             model_path = os.path.join(OUTPUTS_DIR, "best_model.pkl")
@@ -581,7 +588,7 @@ async def execute_agent(agent, inputs: dict) -> Any:
                                     model_name = "Random Forest"
                                 elif model_name == "LogisticRegression":
                                     model_name = "Logistic Regression"
-                                    
+
                                 df_temp = pd.read_csv(file_path, nrows=5)
                                 target_col = detect_target_from_goal(goal, list(df_temp.columns))
                                 if not target_col:
@@ -592,7 +599,7 @@ async def execute_agent(agent, inputs: dict) -> Any:
                                             break
                                     if not target_col:
                                         target_col = df_temp.columns[-1]
-                                
+
                                 # Reconstruct features from preprocessor
                                 try:
                                     num_cols = list(preprocessor.transformers[0][2])
@@ -600,19 +607,19 @@ async def execute_agent(agent, inputs: dict) -> Any:
                                     features = num_cols + cat_cols
                                 except Exception:
                                     features = [c for c in df_temp.columns if c != target_col]
-                                    
+
                                 importances = None
                                 if hasattr(model, "feature_importances_"):
                                     importances = model.feature_importances_
                                 elif hasattr(model, "coef_"):
                                     coef = model.coef_
                                     importances = np.mean(np.abs(coef), axis=0) if len(coef.shape) > 1 else np.abs(coef)
-                                    
+
                                 if importances is not None and len(importances) == len(features):
-                                    top_features = sorted(zip(features, importances), key=lambda x: x[1], reverse=True)[:5]
+                                    top_features = sorted(zip(features, importances, strict=False), key=lambda x: x[1], reverse=True)[:5]
                         except Exception as e:
                             logger.warning(f"Could not load best_model for fallback recommendations: {e}")
-                            
+
                         if not top_features:
                             try:
                                 df_full = pd.read_csv(file_path)
@@ -626,7 +633,7 @@ async def execute_agent(agent, inputs: dict) -> Any:
                                             break
                                     if not target_col:
                                         target_col = df_temp.columns[-1]
-                                        
+
                                 from sklearn.preprocessing import LabelEncoder
                                 y_numeric = LabelEncoder().fit_transform(df_full[target_col].astype(str))
                                 corrs = []
@@ -645,10 +652,10 @@ async def execute_agent(agent, inputs: dict) -> Any:
                                 top_features = sorted(corrs, key=lambda x: x[1], reverse=True)[:5]
                             except Exception as e:
                                 logger.warning(f"Could not compute correlation: {e}")
-                                
+
                         if not target_col:
                             target_col = "target"
-                            
+
                         try:
                             import re as _re
                             acc_match = _re.search(r"score of \*\*([0-9.]+)\*\*", ml_sum)
@@ -660,26 +667,26 @@ async def execute_agent(agent, inputs: dict) -> Any:
                                     accuracy = float(acc_match2.group(1))
                         except Exception:
                             pass
-                            
+
                         try:
                             df_full = pd.read_csv(file_path)
                             recommendations, bottom_line, key_insights = generate_grounded_recommendations(
                                 df_full, target_col, top_features, "classification", domain, model_name, accuracy
                             )
-                        except Exception as e:
+                        except Exception:
                             recommendations = [
                                 f"1. Monitor top features carefully to prevent issues in {target_col}.",
-                                f"2. Review records where values are above historical medians.",
-                                f"3. Enforce quality standard protocols across all data entries.",
-                                f"4. Review and audit high priority indicators regularly.",
-                                f"5. Conduct weekly performance reviews on model predictions."
+                                "2. Review records where values are above historical medians.",
+                                "3. Enforce quality standard protocols across all data entries.",
+                                "4. Review and audit high priority indicators regularly.",
+                                "5. Conduct weekly performance reviews on model predictions."
                             ]
                             bottom_line = f"💡 Bottom Line: {model_name} predicts {target_col} with {accuracy}% accuracy."
-                            key_insights = "Data-driven insights could not be computed for this dataset."                            
+                            key_insights = "Data-driven insights could not be computed for this dataset."
                         # Number each recommendation so markdown parser creates a proper <ol> (Bug Fix: formatting)
                         numbered_recs = [f"{i+1}. {rec}" for i, rec in enumerate(recommendations)]
                         recommendations_str = "\n".join(numbered_recs)
-                        
+
                         # Build top risk factors section ONCE only (Bug Fix 2)
                         risk_factors_lines = ["\n🔍 Top Risk Factors Identified:"]
                         for f_idx, f in enumerate(top_features[:5]):
@@ -698,7 +705,7 @@ async def execute_agent(agent, inputs: dict) -> Any:
                         # Strip any duplicate risk factor blocks from ml_sum (Bug Fix 2)
                         import re as _re2
                         ml_sum_clean = _re2.sub(r'Top Risk Factors:[\s\S]*?(?=\n##|\Z)', '', ml_sum).strip()
-                        
+
                         markdown_report = (
                             f"# DataPilot Analysis Report\n\n"
                             f"## Executive Summary\n"
@@ -724,10 +731,12 @@ async def execute_agent(agent, inputs: dict) -> Any:
                             f"• `outputs/model.joblib` (Preprocessor + Estimator Pipeline)\n"
                             f"• `outputs/security_audit.txt` (Audit logs)"
                         )
-                        
-                        from agents.report_agent import save_report_both as local_save_report_both
+
+                        from agents.report_agent import (
+                            save_report_both as local_save_report_both,
+                        )
                         rep_data = local_save_report_both(markdown_report)
-                        
+
                         return MockAgentOutput(
                             status="complete",
                             report_markdown=markdown_report,
@@ -740,11 +749,11 @@ async def execute_agent(agent, inputs: dict) -> Any:
 
 def send_status(message: str, status: str = "running"):
     """Helper to send progress status updates to the FastAPI MCP server for WebSocket broadcast."""
-    from monitoring.monitor import pipeline_tracker, live_logger
+    from monitoring.monitor import live_logger, pipeline_tracker
     url = "http://localhost:8000/status/broadcast"
-    
+
     status_payload = pipeline_tracker.get_status_dict(message, status)
-    
+
     level = "INFO"
     if status == "error":
         level = "ERROR"
@@ -752,9 +761,9 @@ def send_status(message: str, status: str = "running"):
         level = "WARNING"
     elif status == "complete":
         level = "SUCCESS"
-        
+
     live_logger.log(level, pipeline_tracker.current_agent or "System", message)
-    
+
     try:
         requests.post(url, json=status_payload, timeout=2)
     except Exception as e:
@@ -765,17 +774,17 @@ async def run_pipeline(dataset_path: str, goal: str, force_continue: bool = Fals
     Programmatically runs the complete multi-agent pipeline in the correct sequence.
     Applies input sanitization, tracks time elapsed, checks security bounds, and compiles reports.
     """
-    from monitoring.monitor import pipeline_tracker, perf_metrics, live_logger
-    
+    from monitoring.monitor import perf_metrics, pipeline_tracker
+
     start_time = time.time()
-    
+
     dataset_size_mb = 0.0
     if os.path.exists(dataset_path):
         dataset_size_mb = round(os.path.getsize(dataset_path) / (1024 * 1024), 2)
-        
+
     pipeline_tracker.reset(dataset_size_mb)
     perf_metrics.start_pipeline(dataset_size_mb)
-    
+
     pipeline_tracker.progress = 0.0
     send_status("Pipeline started", "running")
 
@@ -804,7 +813,7 @@ async def run_pipeline(dataset_path: str, goal: str, force_continue: bool = Fals
     pipeline_tracker.progress = 5.0
     perf_metrics.start_stage("DataPilot_EDA_Agent")
     send_status("Step 1/4: EDA Analysis running...", "running")
-    
+
     eda_result = None
     try:
         eda_result = await execute_agent(eda_agent, {
@@ -831,7 +840,7 @@ async def run_pipeline(dataset_path: str, goal: str, force_continue: bool = Fals
     pipeline_tracker.progress = 30.0
     perf_metrics.start_stage("DataPilot_ML_Agent")
     send_status("Step 2/4: ML Training running...", "running")
-    
+
     ml_result = None
     try:
         ml_result = await execute_agent(ml_agent, {
@@ -854,7 +863,7 @@ async def run_pipeline(dataset_path: str, goal: str, force_continue: bool = Fals
     pipeline_tracker.progress = 55.0
     perf_metrics.start_stage("DataPilot_Security_Agent")
     send_status("Step 3/4: Security Review running...", "running")
-    
+
     review_result = None
     try:
         target = eda_result.raw_results.get("patterns_insights", {}).get("detected_target")
@@ -910,52 +919,51 @@ async def run_pipeline(dataset_path: str, goal: str, force_continue: bool = Fals
     if ml_result:
         try:
             import pandas as pd
-            import numpy as np
             df_stats = pd.read_csv(dataset_path)
             target_col = eda_result.raw_results.get("patterns_insights", {}).get("detected_target") if eda_result else None
-            
+
             if target_col and target_col in df_stats.columns:
                 ml_summary_grounded += f"\n\n### GROUNDED MACHINE LEARNING STATS:\n### ACTUAL DATASET STATISTICS FOR TARGET '{target_col}':\n"
                 ml_summary_grounded += f"- Target Column: {target_col}\n"
                 top_feats = [f.get("name") for f in ml_result.feature_importance_top5[:5]]
-                
+
                 # Check binary encoding
                 yes_vals = ["yes", "y", "true", "1", "1.0", "defaulted", "churned", "positive", "sick"]
                 pos_mask = df_stats[target_col].astype(str).str.strip().str.lower().isin(yes_vals)
                 neg_mask = ~pos_mask
-                
+
                 if pos_mask.sum() == 0 or neg_mask.sum() == 0:
                     pos_mask = pd.Series(True, index=df_stats.index)
                     neg_mask = pd.Series(False, index=df_stats.index)
-                    
+
                 for idx, feat in enumerate(top_feats):
                     if feat in df_stats.columns:
                         feat_series = df_stats[feat]
-                        
+
                         if pd.api.types.is_numeric_dtype(feat_series):
                             pos_mean = feat_series[pos_mask].mean()
                             neg_mean = feat_series[neg_mask].mean()
                             if pd.isna(pos_mean): pos_mean = 0
                             if pd.isna(neg_mean): neg_mean = 0
-                            
+
                             threshold = feat_series[neg_mask].median()
                             if pd.isna(threshold):
                                 threshold = feat_series.median()
                             if pd.isna(threshold):
                                 threshold = 0
-                                
+
                             if pos_mean > neg_mean:
                                 direction = "ABOVE"
                                 pct_val = (feat_series[pos_mask] > threshold).mean() * 100
                             else:
                                 direction = "BELOW"
                                 pct_val = (feat_series[pos_mask] <= threshold).mean() * 100
-                                
+
                             if pd.isna(pct_val) or pct_val == 0:
                                 pct_val = 78
-                                
+
                             threshold_str = f"{int(threshold)}" if float(threshold).is_integer() else f"{threshold:.1f}"
-                            
+
                             ml_summary_grounded += (
                                 f"  {idx+1}. Feature '{feat}': Average for positive cases (sick/defaulted) is {pos_mean:.2f} vs negative cases (healthy) {neg_mean:.2f}. "
                                 f"Threshold is {threshold_str}. Risk direction is {direction}. {int(pct_val)}% of positive cases are {direction} threshold of {threshold_str}.\n"
@@ -964,12 +972,12 @@ async def run_pipeline(dataset_path: str, goal: str, force_continue: bool = Fals
                             pos_mode = feat_series[pos_mask].mode().iloc[0] if not feat_series[pos_mask].mode().empty else "N/A"
                             neg_mode = feat_series[neg_mask].mode().iloc[0] if not feat_series[neg_mask].mode().empty else "N/A"
                             pct_pos_mode = (feat_series[pos_mask] == pos_mode).mean() * 100 if pos_mode != "N/A" else 0
-                            
+
                             ml_summary_grounded += (
                                 f"  {idx+1}. Feature '{feat}': Most common value for positive cases is '{pos_mode}' ({pct_pos_mode:.1f}%) "
                                 f"vs negative cases '{neg_mode}'.\n"
                             )
-                
+
                 # Append top risk factors section
                 risk_factors_lines = ["Top Risk Factors:"]
                 for f_idx, f in enumerate(ml_result.feature_importance_top5[:5]):
@@ -1005,7 +1013,7 @@ async def run_pipeline(dataset_path: str, goal: str, force_continue: bool = Fals
     pipeline_tracker.progress = 100.0
     perf_metrics.end_stage("DataPilot_Report_Agent")
     perf_metrics.save_summary()
-    
+
     elapsed_time = (time.time() - start_time) / 60
     send_status(f"Pipeline Complete! Time taken: {elapsed_time:.2f} minutes", "complete")
 

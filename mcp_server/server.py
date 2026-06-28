@@ -6,7 +6,7 @@ import sys
 import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
-from typing import Dict, Any
+from typing import Any
 
 from fastapi import (
     Depends,
@@ -118,7 +118,7 @@ async def log_requests(request: Request, call_next):
     return response
 
 # Standard JSON response format helper
-def make_response(status: str, data: dict = None, message: str = "") -> dict:
+def make_response(status: str, data: dict | None = None, message: str = "") -> dict:
     return {
         "status": status,
         "data": data or {},
@@ -180,16 +180,16 @@ async def websocket_endpoint(websocket: WebSocket):
         ws_manager.disconnect(websocket)
 
 @app.post("/status/broadcast")
-async def rest_broadcast_status(request: Request, payload: Dict[str, Any]):
+async def rest_broadcast_status(request: Request, payload: dict[str, Any]):
     """Internal endpoint for agents to broadcast status updates. Protected by token."""
     # Validate broadcast token from internal agents (localhost requests are also accepted)
     client_host = request.client.host if request.client else ""
     is_localhost = client_host in ("127.0.0.1", "::1", "localhost")
     token = request.headers.get("X-Broadcast-Token", "")
-    
+
     if not is_localhost and token != BROADCAST_TOKEN:
         raise HTTPException(status_code=403, detail="Unauthorized broadcast request.")
-    
+
     await ws_manager.broadcast(payload)
     return make_response("success", message="Status broadcasted successfully")
 
@@ -212,7 +212,7 @@ def run_train(payload: TrainRequest):
         from utils.sanitizer import validate_safe_path
         safe_path = validate_safe_path(payload.file_path)
         safe_test_path = validate_safe_path(payload.test_file_path) if payload.test_file_path else None
-        
+
         if payload.code is not None:
             result = execute_python_code(payload.code, safe_path)
             if result.get("exit_code") != 0:

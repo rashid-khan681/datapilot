@@ -142,7 +142,7 @@ def validate_safe_path(path: str) -> str:
             break
 
     if not is_safe:
-        raise ValueError(f"Access Denied: Path is outside permitted directories.")
+        raise ValueError("Access Denied: Path is outside permitted directories.")
 
     return abs_path
 

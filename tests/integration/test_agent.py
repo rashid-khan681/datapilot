@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
 from google.adk.agents.run_config import RunConfig, StreamingMode
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
@@ -19,8 +20,6 @@ from google.genai import types
 
 from agents.orchestrator import root_agent
 
-
-import pytest
 
 @pytest.mark.skip(reason="Requires a valid non-depleted Google API key to call the real Gemini API")
 def test_agent_stream() -> None:

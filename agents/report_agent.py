@@ -321,7 +321,7 @@ def convert_markdown_to_premium_html(md: str) -> str:
 
 def save_report_both(markdown_content: str) -> dict:
     """Saves the report as markdown and compiles it to a styled premium HTML page.
-    
+
     Args:
         markdown_content: The full markdown report content.
     """
@@ -382,7 +382,7 @@ Your workflow:
    ## Executive Summary (Must be 3 lines max)
    ## What We Found In Your Data
    ## Machine Learning Results
-   ## Key Business Insights  
+   ## Key Business Insights
    ## Recommended Actions (Include a numbered list)
    ## Security Summary
    ## Files Generated

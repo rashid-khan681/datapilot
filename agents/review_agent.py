@@ -36,9 +36,9 @@ def send_status(message: str, status: str = "running"):
     except Exception as e:
         logger.warning(f"Failed to broadcast status update: {e}")
 
-def run_security_review(file_path: str, target: str = None, code: str = None) -> dict:
+def run_security_review(file_path: str, target: str | None = None, code: str | None = None) -> dict:
     """Runs a complete security and privacy audit on the dataset by calling the MCP server.
-    
+
     Args:
         file_path: Path to the dataset CSV file.
         target: Optional target column name.

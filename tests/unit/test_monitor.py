@@ -1,8 +1,15 @@
-import os
 import json
+import os
 import time
-import pytest
-from monitoring.monitor import live_logger, pipeline_tracker, perf_metrics, LOG_FILE_PATH, METRICS_FILE_PATH
+
+from monitoring.monitor import (
+    LOG_FILE_PATH,
+    METRICS_FILE_PATH,
+    live_logger,
+    perf_metrics,
+    pipeline_tracker,
+)
+
 
 def test_live_logger():
     # Clear logs first
@@ -24,7 +31,7 @@ def test_live_logger():
 
     # Verify file was written
     assert os.path.exists(LOG_FILE_PATH)
-    with open(LOG_FILE_PATH, "r", encoding="utf-8") as f:
+    with open(LOG_FILE_PATH, encoding="utf-8") as f:
         file_content = f.read()
     assert "Starting statistical analysis" in file_content
 
@@ -59,19 +66,19 @@ def test_performance_metrics():
         os.remove(METRICS_FILE_PATH)
 
     perf_metrics.start_pipeline(dataset_size_mb=12.5)
-    
+
     perf_metrics.start_stage("DataPilot_EDA_Agent")
     time.sleep(0.1)
     perf_metrics.end_stage("DataPilot_EDA_Agent")
-    
+
     perf_metrics.start_stage("DataPilot_ML_Agent")
     time.sleep(0.1)
     perf_metrics.end_stage("DataPilot_ML_Agent")
-    
+
     perf_metrics.save_summary()
 
     assert os.path.exists(METRICS_FILE_PATH)
-    with open(METRICS_FILE_PATH, "r", encoding="utf-8") as f:
+    with open(METRICS_FILE_PATH, encoding="utf-8") as f:
         data = json.load(f)
 
     assert data["dataset_size_mb"] == 12.5

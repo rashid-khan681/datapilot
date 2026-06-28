@@ -37,7 +37,7 @@ def send_status(message: str, status: str = "running"):
 
 def run_eda(file_path: str) -> dict:
     """Runs EDA analysis on the dataset by calling the MCP server.
-    
+
     Args:
         file_path: Path to the CSV file to analyze.
     """

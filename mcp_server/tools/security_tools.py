@@ -13,10 +13,10 @@ os.makedirs(OUTPUTS_DIR, exist_ok=True)
 
 def scan_code_security(code: str) -> dict:
     """Scans the Python code for security issues and machine learning best practices/methodology errors.
-    
+
     This function performs static code scanning on code strings for dangerous functions (eval, exec)
     or potential target leakage.
-    
+
     Args:
         code: The Python code to analyze.
     """
@@ -78,7 +78,7 @@ def scan_code_security(code: str) -> dict:
 
 def save_report(content: str) -> str:
     """Saves the final markdown report to the outputs directory.
-    
+
     Args:
         content: The Markdown content of the report.
     """
@@ -91,10 +91,10 @@ def save_report(content: str) -> str:
         return f"Error saving report: {e!s}"
 
 
-def review_code(file_path: str, target: str = None, code: str = None) -> dict:
+def review_code(file_path: str, target: str | None = None, code: str | None = None) -> dict:
     """
     Performs a comprehensive data privacy and security review on a dataset.
-    
+
     Checks include:
       1. DATA PRIVACY SCAN: Regex scans column names and samples for emails, phones, SSNs, credit cards
       2. DATA LEAKAGE CHECK: Checks for direct target overlap or extreme correlations (>0.99)
@@ -102,12 +102,12 @@ def review_code(file_path: str, target: str = None, code: str = None) -> dict:
       4. INPUT VALIDATION: Checks CSV integrity and SQL/HTML injection attempts in column headers
       5. OUTPUT SECURITY: Verifies outputs directory safety and scans reports for leaked PII
       6. AUDIT LOGGING: Saves full audit report to outputs/security_audit.txt
-      
+
     Args:
         file_path: Path to the CSV dataset.
         target: Target column name (optional).
         code: Code or report string to scan (optional).
-        
+
     Returns:
         Structured dictionary with issue lists, fix suggestions, score, and safety flag.
     """

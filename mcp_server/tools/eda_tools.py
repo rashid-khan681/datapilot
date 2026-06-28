@@ -14,7 +14,7 @@ def run_eda(file_path: str) -> dict:
     """
     Performs comprehensive Exploratory Data Analysis (EDA) on a CSV dataset.
     Generates interactive Plotly visualizations and returns a structured dictionary.
-    
+
     The analysis includes:
       1. BASIC INFO: Rows, columns, file size, column types
       2. MISSING VALUES: Count, percentage, and high-missing (>30%) warnings
@@ -22,10 +22,10 @@ def run_eda(file_path: str) -> dict:
       4. PATTERNS & INSIGHTS: Auto target detection, strong correlations (>=0.7), IQR outliers, duplicate rows
       5. VISUALIZATIONS: Plotly correlation heatmap, numeric distribution plots saved as HTML
       6. WARNINGS: Heavy target imbalance (>80%), unique ID column flags, constant value flags
-      
+
     Args:
         file_path: Absolute or relative path to the CSV file.
-        
+
     Returns:
         A structured dictionary containing basic info, missing values, statistics,
         patterns, warnings, and generated visualization paths.
@@ -199,7 +199,7 @@ def run_eda(file_path: str) -> dict:
         def _inject_google_font(file_path: str):
             if os.path.exists(file_path):
                 try:
-                    with open(file_path, "r", encoding="utf-8") as f:
+                    with open(file_path, encoding="utf-8") as f:
                         content = f.read()
                     font_link = '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">'
                     content = content.replace("<head>", f"<head>{font_link}")
@@ -209,36 +209,36 @@ def run_eda(file_path: str) -> dict:
                     print(f"Error injecting Google Font to {file_path}: {e}")
 
         # Premium dark template styling to match Dashboard theme
-        layout_update = dict(
-            template="plotly_dark",
-            paper_bgcolor="#111118", # Sleek background container matching app card theme
-            plot_bgcolor="rgba(10, 10, 15, 0.5)", # Subtle dark interior background
-            font=dict(color="#f8fafc", family="Inter, sans-serif"),
-            title=dict(
-                font=dict(color="#f8fafc", size=16, family="Inter, sans-serif"),
-                pad=dict(b=12),
-                x=0.05
-            ),
-            xaxis=dict(
-                gridcolor="#2a2a3a",
-                linecolor="#2a2a3a",
-                zerolinecolor="#2a2a3a",
-                title=dict(font=dict(color="#94a3b8", size=13))
-            ),
-            yaxis=dict(
-                gridcolor="#2a2a3a",
-                linecolor="#2a2a3a",
-                zerolinecolor="#2a2a3a",
-                title=dict(font=dict(color="#94a3b8", size=13))
-            ),
-            coloraxis=dict(
-                colorbar=dict(
-                    thickness=16,
-                    title=dict(font=dict(color="#94a3b8", size=11))
-                )
-            ),
-            margin=dict(l=100, r=40, t=75, b=80) # Increased margins to prevent label truncation
-        )
+        layout_update = {
+            "template": "plotly_dark",
+            "paper_bgcolor": "#111118", # Sleek background container matching app card theme
+            "plot_bgcolor": "rgba(10, 10, 15, 0.5)", # Subtle dark interior background
+            "font": {"color": "#f8fafc", "family": "Inter, sans-serif"},
+            "title": {
+                "font": {"color": "#f8fafc", "size": 16, "family": "Inter, sans-serif"},
+                "pad": {"b": 12},
+                "x": 0.05
+            },
+            "xaxis": {
+                "gridcolor": "#2a2a3a",
+                "linecolor": "#2a2a3a",
+                "zerolinecolor": "#2a2a3a",
+                "title": {"font": {"color": "#94a3b8", "size": 13}}
+            },
+            "yaxis": {
+                "gridcolor": "#2a2a3a",
+                "linecolor": "#2a2a3a",
+                "zerolinecolor": "#2a2a3a",
+                "title": {"font": {"color": "#94a3b8", "size": 13}}
+            },
+            "coloraxis": {
+                "colorbar": {
+                    "thickness": 16,
+                    "title": {"font": {"color": "#94a3b8", "size": 11}}
+                }
+            },
+            "margin": {"l": 100, "r": 40, "t": 75, "b": 80} # Increased margins to prevent label truncation
+        }
 
         # Correlation Heatmap
         heatmap_file = ""
@@ -318,10 +318,10 @@ def run_eda(file_path: str) -> dict:
 
 def read_dataset_info(file_path: str) -> str:
     """Reads a CSV dataset and returns a markdown summary of its schema and statistical description.
-    
-    This function wraps the comprehensive `run_eda()` tool and formats its output into a human-readable 
+
+    This function wraps the comprehensive `run_eda()` tool and formats its output into a human-readable
     markdown summary for compatibility with existing agents.
-    
+
     Args:
         file_path: The absolute or relative path to the CSV file.
     """

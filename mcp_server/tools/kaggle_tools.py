@@ -8,10 +8,10 @@ os.makedirs(UPLOADS_DIR, exist_ok=True)
 
 def download_kaggle_dataset(dataset_slug: str) -> dict:
     """Downloads a dataset from Kaggle and saves it to the uploads directory.
-    
+
     Requires Kaggle credentials to be configured. If credentials are missing,
     it falls back to using the pre-generated customer churn dataset for demo purposes.
-    
+
     Args:
         dataset_slug: The Kaggle dataset identifier in format 'username/dataset-name'.
     """
@@ -90,9 +90,9 @@ def download_kaggle_dataset(dataset_slug: str) -> dict:
 
 def search_kaggle_datasets(query: str) -> list:
     """Searches Kaggle for datasets matching the query.
-    
+
     If credentials are not configured, returns a pre-curated list of matching datasets.
-    
+
     Args:
         query: The search query string.
     """

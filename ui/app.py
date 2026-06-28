@@ -1,30 +1,39 @@
-import gradio as gr
-import os
-import time
-import shutil
 import asyncio
-import sys
-import joblib
-import pandas as pd
-import numpy as np
 import datetime
-import json
 import glob
+import json
+import logging
+import os
 import re
+import shutil
+import sys
+import time
+
+import gradio as gr
+import joblib
+import numpy as np
+import pandas as pd
 import requests
-from requests.exceptions import RequestException
 from dotenv import load_dotenv
+
+# Set up logging
+logger = logging.getLogger("datapilot.ui")
 
 # Load environment variables
 load_dotenv()
+
 
 # Ensure workspace folders are in Python path
 WORKSPACE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(WORKSPACE_ROOT)
 
-from agents.orchestrator import root_agent, run_pipeline
-from mcp_server.tools.kaggle_tools import search_kaggle_datasets, download_kaggle_dataset
 from google.adk.apps import App
+
+from agents.orchestrator import root_agent, run_pipeline
+from mcp_server.tools.kaggle_tools import (
+    download_kaggle_dataset,
+    search_kaggle_datasets,
+)
 
 adk_app = App(root_agent=root_agent, name="app")
 
@@ -955,22 +964,22 @@ def check_backend_status() -> str:
             mcp_ok = True
     except Exception:
         pass
-        
+
     model_loaded = os.path.exists(os.path.join(OUTPUTS_DIR, "model.joblib"))
-    
+
     mcp_dot = "dot-green" if mcp_ok else "dot-red"
     mcp_text = "MCP Server"
-    
+
     agents_dot = "dot-green" # Agents are always ready when UI loads or pipeline is idle
     agents_text = "Agents Ready"
-    
+
     model_dot = "dot-blue" if model_loaded else "dot-red"
     model_text = "Model Loaded" if model_loaded else "Model Offline"
-    
+
     mcp_class = "status-online" if mcp_ok else "status-offline"
     agents_class = "status-online"
     model_class = "status-active" if model_loaded else "status-offline"
-    
+
     return f"""
     <div class="status-indicators">
         <span class="status-indicator {mcp_class}">
@@ -995,7 +1004,7 @@ def make_agent_card(agent_name: str, status: str) -> str:
     badge_class = "badge-waiting"
     badge_label = "Waiting"
     card_class = "agent-card"
-    
+
     if status == "running":
         card_class = "agent-card running"
 
@@ -1015,7 +1024,7 @@ def make_agent_card(agent_name: str, status: str) -> str:
             status_desc = "Analysis failed"
             badge_class = "badge-failed"
             badge_label = "Failed"
-            
+
     elif agent_name == "ML Agent":
         icon = "⚙️"
         if status == "waiting":
@@ -1032,7 +1041,7 @@ def make_agent_card(agent_name: str, status: str) -> str:
             status_desc = "Training failed"
             badge_class = "badge-failed"
             badge_label = "Failed"
-            
+
     elif agent_name == "Security Agent":
         icon = "🔒"
         if status == "waiting":
@@ -1049,7 +1058,7 @@ def make_agent_card(agent_name: str, status: str) -> str:
             status_desc = "Vulnerabilities flagged"
             badge_class = "badge-failed"
             badge_label = "Failed"
-            
+
     elif agent_name == "Report Agent":
         icon = "📄"
         if status == "waiting":
@@ -1066,7 +1075,7 @@ def make_agent_card(agent_name: str, status: str) -> str:
             status_desc = "Compilation failed"
             badge_class = "badge-failed"
             badge_label = "Failed"
-            
+
     return f"""
     <div class="{card_class}">
         <div class="agent-card-header">
@@ -1090,19 +1099,19 @@ def generate_metric_cards(ml_results: dict, security_results: dict, eda_results:
             score_str = f"{score * 100:.1f}%"
         else:
             score_str = f"{score:.2f}"
-            
+
     raw_eda = eda_results.get("raw_results", {}) if isinstance(eda_results, dict) else {}
     basic_info = eda_results.get("basic_info", {}) if isinstance(eda_results, dict) else {}
     if not basic_info and isinstance(raw_eda, dict):
         basic_info = raw_eda.get("basic_info", {})
     row_count = basic_info.get("rows", 0) if isinstance(basic_info, dict) else 0
     row_count_str = f"{row_count:,}" if row_count else "N/A"
-    
+
     # Calculate Key Risk Factors count from ml_results
     importances_list = ml_results.get("feature_importance_top5", [])
     if not importances_list:
         importances_list = ml_results.get("top_features", [])
-        
+
     count = 0
     if importances_list:
         for item in importances_list:
@@ -1112,16 +1121,16 @@ def generate_metric_cards(ml_results: dict, security_results: dict, eda_results:
                 imp = item[1]
             else:
                 imp = 0
-                
+
             try:
                 imp_val = float(imp)
                 if imp_val > 0.05 if imp_val <= 1.0 else imp_val > 5.0:
                     count += 1
             except (ValueError, TypeError):
                 pass
-                
+
     risk_factors_count = max(3, min(10, count))
-    
+
     sec_score = security_results.get("security_score", 100)
     sec_issues = len(security_results.get("issues_list", []))
     sec_issues_str = f"{sec_issues} warnings flagged" if sec_issues else "No warnings"
@@ -1155,7 +1164,7 @@ def load_charts_html() -> str:
     """Finds all Plotly interactive HTML files inside the outputs folder and embeds them inline using src."""
     import urllib.parse
     html_elements = []
-    
+
     # 1. Heatmap
     heatmap_path = os.path.join(OUTPUTS_DIR, "eda_correlation_heatmap.html")
     if os.path.exists(heatmap_path):
@@ -1166,7 +1175,7 @@ def load_charts_html() -> str:
             <iframe src="/gradio_api/file={encoded_path}" width="100%" height="550px" style="border:1px solid #2A2A3A; border-radius: 12px; background-color: #0A0A0F;" sandbox="allow-scripts"></iframe>
         </div>
         """)
-        
+
     # 2. Feature Importance
     importance_path = os.path.join(OUTPUTS_DIR, "ml_feature_importance.html")
     if os.path.exists(importance_path):
@@ -1177,7 +1186,7 @@ def load_charts_html() -> str:
             <iframe src="/gradio_api/file={encoded_path}" width="100%" height="550px" style="border:1px solid #2A2A3A; border-radius: 12px; background-color: #0A0A0F;" sandbox="allow-scripts"></iframe>
         </div>
         """)
-        
+
     # 3. Distribution plots
     dist_plots = glob.glob(os.path.join(OUTPUTS_DIR, "eda_dist_*.html"))
     if dist_plots:
@@ -1191,16 +1200,16 @@ def load_charts_html() -> str:
                 <iframe src="/gradio_api/file={encoded_path}" width="100%" height="450px" style="border:1px solid #2A2A3A; border-radius: 12px; background-color: #0A0A0F;" sandbox="allow-scripts"></iframe>
             </div>
             """)
-            
+
     if not html_elements:
         return "<p style='color: #94A3B8;'>No interactive visualization charts generated yet.</p>"
-        
+
     return "\n".join(html_elements)
 
 def generate_download_grid(model_path: str, predictions_path: str, report_path: str) -> str:
     """Generates premium HTML grid of custom styled outline download buttons."""
     import urllib.parse
-    
+
     def get_file_size(p):
         if os.path.exists(p):
             sz = os.path.getsize(p)
@@ -1209,7 +1218,7 @@ def generate_download_grid(model_path: str, predictions_path: str, report_path: 
             else:
                 return f"{sz / 1024:.1f} KB"
         return "N/A"
-        
+
     elements = []
     if os.path.exists(model_path):
         encoded = urllib.parse.quote(model_path, safe='/')
@@ -1223,7 +1232,7 @@ def generate_download_grid(model_path: str, predictions_path: str, report_path: 
             </div>
         </a>
         """)
-        
+
     if os.path.exists(predictions_path):
         encoded = urllib.parse.quote(predictions_path, safe='/')
         sz = get_file_size(predictions_path)
@@ -1236,7 +1245,7 @@ def generate_download_grid(model_path: str, predictions_path: str, report_path: 
             </div>
         </a>
         """)
-        
+
     if os.path.exists(report_path):
         encoded = urllib.parse.quote(report_path, safe='/')
         sz = get_file_size(report_path)
@@ -1249,10 +1258,10 @@ def generate_download_grid(model_path: str, predictions_path: str, report_path: 
             </div>
         </a>
         """)
-        
+
     if not elements:
         return "<p style='color: #94A3B8;'>No download assets generated yet.</p>"
-        
+
     return f"""
     <div class="downloads-grid">
         {"".join(elements)}
@@ -1294,9 +1303,9 @@ def format_logs_html(log_lines: list) -> str:
             color = "#EF4444" # Red
         elif "🚀" in line or "[System]" in line:
             color = "#6366F1" # Indigo
-            
+
         formatted_lines.append(f'<div style="color: {color}; margin-bottom: 4px;">{line}</div>')
-        
+
     return f"""
     <div class="logs-container-title">LIVE LOGS</div>
     <div class="logs-viewport" id="logs-viewport-id">
@@ -1327,7 +1336,7 @@ def write_minimal_pdf(filename: str, text: str):
     """Generates a basic, structurally valid PDF containing raw text summaries for local downloads."""
     clean_text = re.sub(r'[^\x00-\x7F]+', ' ', text)
     clean_text = re.sub(r'[\r\n\t]', ' ', clean_text)[:200]
-    
+
     pdf_content = (
         "%PDF-1.4\n"
         "1 0 obj <</Type /Catalog /Pages 2 0 R>> endobj\n"
@@ -1370,7 +1379,7 @@ def ensure_download_files(result: dict):
     model_pkl_path = os.path.join(OUTPUTS_DIR, "model.pkl")
     if os.path.exists(model_joblib_path):
         shutil.copy(model_joblib_path, model_pkl_path)
-            
+
     pdf_path = os.path.join(OUTPUTS_DIR, "report.pdf")
     if not os.path.exists(pdf_path):
         report_md = result.get("report_markdown", "")
@@ -1415,10 +1424,10 @@ def predict_custom_model(json_str: str) -> str:
         if isinstance(input_data, dict):
             input_data = [input_data]
         input_df = pd.DataFrame(input_data)
-        
+
         # Load model pipeline
         model_pipeline = joblib.load(model_path)
-        
+
         # Load metadata sidecar for expected columns and label mapping
         metadata_path = os.path.join(OUTPUTS_DIR, "model_metadata.json")
         expected_cols = None
@@ -1447,7 +1456,7 @@ def predict_custom_model(json_str: str) -> str:
 
         # Filter input to only model-expected columns (in correct order)
         if expected_cols:
-            available = [c for c in expected_cols if c in input_df.columns]
+            [c for c in expected_cols if c in input_df.columns]
             missing_input_cols = [c for c in expected_cols if c not in input_df.columns]
             if missing_input_cols:
                 # Fill missing cols with 0/median — graceful degradation
@@ -1477,7 +1486,7 @@ def predict_custom_model(json_str: str) -> str:
             proba = model_pipeline.predict_proba(input_df)[0]
             pred_class_idx = int(np.argmax(proba))
             decoded_prediction = decode_class(pred_class_idx)
-            
+
             # Build class labels for probability display
             if target_classes_map:
                 classes_list = [target_classes_map.get(str(i), str(i)) for i in range(len(proba))]
@@ -1485,7 +1494,7 @@ def predict_custom_model(json_str: str) -> str:
                 classes_list = [decode_class(c) for c in range(len(proba))]
             else:
                 classes_list = [str(i) for i in range(len(proba))]
-            
+
             prob_items = []
             for i in range(len(proba)):
                 val = proba[i] * 100
@@ -1533,7 +1542,7 @@ def predict_custom_model(json_str: str) -> str:
                 else:
                     box_class = "prediction-box prediction-low"
                 title = f"🔮 Prediction: {decoded_prediction}"
-            
+
             return f"""
             <div class="{box_class}">
                 <div style="font-size: 1.3rem; font-weight: bold; margin-bottom: 10px;">
@@ -1592,14 +1601,14 @@ async def run_data_science_pipeline(file_obj, goal, force_continue: bool = False
             "" # summary_completed_html
         )
         return
-        
+
     # Input validation and sanitization
-    from utils.sanitizer import sanitize_goal, sanitize_csv_file
+    from utils.sanitizer import sanitize_csv_file, sanitize_goal
     try:
         sanitize_csv_file(file_obj.name)
         goal = sanitize_goal(goal)
     except ValueError as e:
-        err_msg = f"❌ Input Validation Error: {str(e)}"
+        err_msg = f"❌ Input Validation Error: {e!s}"
         yield (
             format_time_counter(0),
             format_progress_bar(0.0),
@@ -1627,16 +1636,16 @@ async def run_data_science_pipeline(file_obj, goal, force_continue: bool = False
     original_filename = os.path.basename(file_obj.name)
     saved_file_path = os.path.join(UPLOADS_DIR, original_filename)
     shutil.copy(file_obj.name, saved_file_path)
-    
+
     # Initialize UI state vars
     eda_status = "waiting"
     ml_status = "waiting"
     sec_status = "waiting"
     rep_status = "waiting"
-    
+
     warnings_cnt = 0
     progress_val = 0.0
-    
+
     logs = [
         "============================================================",
         "🚀 DATAPILOT: Initiating Multi-Agent Pipeline",
@@ -1645,12 +1654,12 @@ async def run_data_science_pipeline(file_obj, goal, force_continue: bool = False
         f"• Goal:    {goal}",
         "------------------------------------------------------------"
     ]
-    
+
     start_time = time.time()
-    
+
     def get_yield_tuple(progress_val, results_visible=False, warning_visible=False, warning_html="", summary_html="", report_md="", charts_html="", sample_json=""):
         elapsed = int(time.time() - start_time)
-        
+
         # Format the downloads grid if complete
         downloads_html = ""
         if results_visible:
@@ -1658,15 +1667,15 @@ async def run_data_science_pipeline(file_obj, goal, force_continue: bool = False
             predictions_csv_path = os.path.join(OUTPUTS_DIR, "predictions.csv")
             report_pdf_path = os.path.join(OUTPUTS_DIR, "report.pdf")
             downloads_html = generate_download_grid(model_pkl_path, predictions_csv_path, report_pdf_path)
-            
+
         summary_completed_html = ""
         if results_visible:
             summary_completed_html = format_completed_summary(elapsed, warnings_cnt)
-            
+
         # Determine panel visibilities
         running_panel_visible = not results_visible and not warning_visible
         completed_panel_visible = results_visible
-        
+
         return (
             format_time_counter(elapsed),
             format_progress_bar(progress_val),
@@ -1690,12 +1699,12 @@ async def run_data_science_pipeline(file_obj, goal, force_continue: bool = False
 
     # Spawn background orchestrator execution task
     pipeline_task = asyncio.create_task(run_pipeline(saved_file_path, goal, force_continue=force_continue))
-    
+
     # Connect to local Fastapi server WebSocket Status Channel
     websocket_url = "ws://127.0.0.1:8000/ws/status"
     ws = None
     ws_connected = False
-    
+
     try:
         import websockets as _ws_lib
         ws = await _ws_lib.connect(websocket_url)
@@ -1703,7 +1712,7 @@ async def run_data_science_pipeline(file_obj, goal, force_continue: bool = False
         logs.append("[System] Successfully connected to WebSocket status channel.")
     except Exception as e:
         logs.append(f"[System] Warning: WebSocket status connection failed ({e}). Falling back to local logging.")
-        
+
     yield get_yield_tuple(0.0)
 
     # Monitor pipeline and WebSocket events
@@ -1716,17 +1725,17 @@ async def run_data_science_pipeline(file_obj, goal, force_continue: bool = False
                 agent = data.get("agent")
                 message = data.get("message")
                 status = data.get("status")
-                
+
                 # Parse progress & metrics
                 progress_percent = data.get("progress")
                 if progress_percent is not None:
                     progress_val = progress_percent / 100.0
                     progress_updated = True
-                    
+
                 metrics = data.get("metrics", {})
                 if metrics:
                     warnings_cnt = metrics.get("warnings_count", 0)
-                
+
                 # Map names
                 mapped_agent = agent
                 if agent == "DataPilot_EDA_Agent" or agent == "EDA Agent":
@@ -1737,10 +1746,10 @@ async def run_data_science_pipeline(file_obj, goal, force_continue: bool = False
                     mapped_agent = "Security Agent"
                 elif agent == "DataPilot_Report_Agent" or agent == "Report Agent":
                     mapped_agent = "Report Agent"
-                
+
                 timestamp = datetime.datetime.now().strftime("%H:%M:%S")
                 logs.append(f"[{timestamp}] [{mapped_agent}] {message}")
-                
+
                 if mapped_agent == "EDA Agent":
                     if status == "running":
                         eda_status = "running"
@@ -1769,19 +1778,19 @@ async def run_data_science_pipeline(file_obj, goal, force_continue: bool = False
                         rep_status = "done"
                     elif status == "error" or status == "failed":
                         rep_status = "failed"
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 pass
             except Exception as e:
                 logs.append(f"[System] WebSocket link broken: {e}")
                 ws_connected = False
         else:
             await asyncio.sleep(0.5)
-            
+
         if not ws_connected or not progress_updated:
             stages_done = sum(1 for s in [eda_status, ml_status, sec_status, rep_status] if s == "done")
             current_running = sum(1 for s in [eda_status, ml_status, sec_status, rep_status] if s == "running")
             progress_val = (stages_done + (0.5 if current_running else 0)) / 4.0
-            
+
         yield get_yield_tuple(progress_val)
 
     if ws:
@@ -1799,18 +1808,18 @@ async def run_data_science_pipeline(file_obj, goal, force_continue: bool = False
         return
 
     status = result.get("status")
-    
+
     if status == "warning":
         security_score = result.get("security_score", 100)
         issues = result.get("security_issues", [])
-        
+
         issues_html = ["<ul>"]
         for iss in issues:
             severity = iss.get("severity", "WARNING").upper()
             color = "#EF4444" if severity == "CRITICAL" else "#F59E0B"
             issues_html.append(f"<li style='margin-bottom: 8px;'><span style='color: {color}; font-weight: bold;'>[{severity}]</span> {iss.get('message')} - <em>Fix: {iss.get('suggestion')}</em></li>")
         issues_html.append("</ul>")
-        
+
         warning_card_html = f"""
         <div style="background-color: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; border-radius: 8px; padding: 20px; color: #fca5a5;">
             <p style="font-size: 1.15rem; font-weight: bold; margin-top: 0;">⚠️ Critical security issues discovered! (Score: {security_score}/100)</p>
@@ -1838,11 +1847,11 @@ async def run_data_science_pipeline(file_obj, goal, force_continue: bool = False
     ml_status = "done"
     sec_status = "done"
     rep_status = "done"
-    
+
     ensure_download_files(result)
     summary_cards_html = generate_metric_cards(result.get("ml_results", {}), result.get("security_results", {}), result.get("eda_results", {}))
     charts_html = load_charts_html()
-    
+
     # Generate sample JSON for custom predictor — only include model-expected non-ID columns
     sample_json_str = ""
     try:
@@ -1877,9 +1886,9 @@ async def run_data_science_pipeline(file_obj, goal, force_continue: bool = False
                     continue
                 if sample_df[col].nunique() == len(sample_df) or (col.lower().endswith("id") and sample_df[col].nunique() > len(sample_df) * 0.8):
                     id_cols.append(col)
-            cols_to_drop = [c for c in id_cols + [target_col] if c in sample_df.columns]
+            cols_to_drop = [c for c in [*id_cols, target_col] if c in sample_df.columns]
             features_df = sample_df.drop(columns=cols_to_drop, errors='ignore')
-        
+
         if not features_df.empty:
             first_row = features_df.iloc[0].to_dict()
             for k, v in list(first_row.items()):
@@ -1890,7 +1899,7 @@ async def run_data_science_pipeline(file_obj, goal, force_continue: bool = False
             sample_json_str = _json.dumps(first_row, indent=2)
     except Exception as e:
         logger.warning(f"Failed to generate sample JSON input: {e}")
-        
+
     yield get_yield_tuple(
         progress_val=1.0,
         results_visible=True,
@@ -1942,7 +1951,7 @@ def launch_ui():
         block_title_text_color="#ffffff",
         block_title_text_color_dark="#ffffff",
     )
-    
+
     with gr.Blocks(css=CSS, theme=theme, title="DataPilot - Autonomous ML Platform") as demo:
         # Section 1: Navigation Bar
         with gr.Row(elem_id="navbar-container"):
@@ -1956,10 +1965,10 @@ def launch_ui():
                 """
             )
             backend_status_indicators = gr.HTML(value=check_backend_status())
-                
+
         # Main Dashboard Layout Wrapper
         with gr.Column(elem_id="main-content-wrapper"):
-            
+
             # Section 2: Hero Section — Premium
             gr.HTML(
                 """
@@ -1968,13 +1977,13 @@ def launch_ui():
                     <div class="hero-orb hero-orb-1"></div>
                     <div class="hero-orb hero-orb-2"></div>
                     <div class="hero-orb hero-orb-3"></div>
-                    
+
                     <!-- Dot grid pattern overlay -->
                     <div class="hero-grid-overlay"></div>
-                    
+
                     <!-- Gradient edge fade -->
                     <div class="hero-edge-fade"></div>
-                    
+
                     <!-- Hero Content -->
                     <div class="hero-container">
                         <p class="hero-eyebrow">
@@ -2019,10 +2028,10 @@ def launch_ui():
                 </div>
                 """
             )
-            
+
             # Section 3: Input Card
             with gr.Column(elem_id="input-card"):
-                with gr.Tabs(elem_id="input-tabs") as input_tabs:
+                with gr.Tabs(elem_id="input-tabs"):
                     with gr.TabItem("1. Local Dataset", id="local-input-tab"):
                         with gr.Column(elem_classes=["upload-card-wrapper"]):
                             dataset_input = gr.File(
@@ -2030,17 +2039,17 @@ def launch_ui():
                                 file_types=[".csv"],
                                 value=os.path.join(WORKSPACE_ROOT, "uploads", "titanic.csv")
                             )
-                            
+
                     with gr.TabItem("1. Search & Import Kaggle", id="kaggle-input-tab"):
                         with gr.Column(elem_classes=["kaggle-card-wrapper"]):
                             kaggle_query = gr.Textbox(label="Search Kaggle Datasets", placeholder="e.g. churn, titanic, housing...")
                             search_btn = gr.Button("Search Kaggle", variant="secondary")
                             search_results_md = gr.Markdown("Enter search term to list datasets.")
-                            
+
                             kaggle_slug = gr.Textbox(label="Dataset Slug to Download", placeholder="e.g. blastchar/telco-customer-churn")
                             download_btn = gr.Button("Download & Import", variant="secondary")
                             download_status = gr.Textbox(label="Import Status", interactive=False)
-                
+
                 gr.HTML(
                     """
                     <div class="input-divider">
@@ -2048,16 +2057,16 @@ def launch_ui():
                     </div>
                     """
                 )
-                
+
                 with gr.Column(elem_classes=["goal-input-wrapper"]):
                     goal_input = gr.Textbox(
                         label="WHAT DO YOU WANT TO KNOW?",
                         placeholder="e.g. Predict which customers will churn based on their purchase behavior...",
                         lines=3
                     )
-                
+
                 launch_btn = gr.Button("Launch DataPilot →", variant="primary", elem_classes=["launch-btn"])
-            
+
             # Section 4: Pipeline Status Panel (Hidden by default)
             with gr.Column(visible=False, elem_id="pipeline-status-panel") as pipeline_status_panel:
                 gr.HTML(
@@ -2068,26 +2077,26 @@ def launch_ui():
                     </div>
                     """
                 )
-                
+
                 # 4 Agent cards in a row
                 with gr.Row(elem_id="agent-cards-row"):
                     eda_badge = gr.HTML(value=make_agent_card("EDA Agent", "waiting"))
                     ml_badge = gr.HTML(value=make_agent_card("ML Agent", "waiting"))
                     sec_badge = gr.HTML(value=make_agent_card("Security Agent", "waiting"))
                     rep_badge = gr.HTML(value=make_agent_card("Report Agent", "waiting"))
-                
+
                 # Progress slider and counter
                 with gr.Row():
                     progress_bar = gr.HTML(value=format_progress_bar(0.0))
                     time_elapsed_display = gr.HTML(value=format_time_counter(0))
-                
+
                 # Live log viewport
                 terminal_logs = gr.HTML(value=format_logs_html([]))
 
             # Collapsed summary row (Hidden by default)
             with gr.Row(visible=False, elem_id="pipeline-completed-summary") as pipeline_completed_summary:
                 pipeline_summary_html = gr.HTML()
-                
+
             # Security Warnings Panel (Slack-like permission prompt)
             with gr.Column(visible=False, elem_id="security-warning-panel") as security_warning_container:
                 gr.Markdown("### ⚠️ Security Clearance Required")
@@ -2099,23 +2108,23 @@ def launch_ui():
             # Section 5: Results Panel (Hidden by default)
             with gr.Column(visible=False, elem_id="results-panel") as results_container:
                 gr.HTML("<h2>📊 DataPilot Pipeline Results</h2>")
-                
+
                 # 4 metrics cards
                 summary_cards_display = gr.HTML()
-                
-                with gr.Tabs(elem_id="results-tabs") as results_tabs:
+
+                with gr.Tabs(elem_id="results-tabs"):
                     # Tab 1: Insights
                     with gr.TabItem("📊 Insights", id="insights-tab"):
                         report_md = gr.Markdown(elem_classes=["results-insights-markdown"])
-                        
+
                     # Tab 2: Charts
                     with gr.TabItem("📈 Charts", id="charts-tab"):
                         charts_display_html = gr.HTML()
-                        
+
                     # Tab 3: Downloads
                     with gr.TabItem("📁 Downloads", id="downloads-tab"):
                         downloads_display_html = gr.HTML()
-                        
+
                     # Tab 4: Live Predictor (Premium predictor)
                     with gr.TabItem("🔮 Live Predictor", id="predictor-tab"):
                         gr.HTML("<h3>🔮 Interactive Model Predictor</h3><p>Test the trained ML model interactively on custom data inputs in JSON format:</p>")
@@ -2157,21 +2166,21 @@ def launch_ui():
             inputs=[kaggle_query],
             outputs=[search_results_md]
         )
-        
+
         # Wire up Kaggle Download
         download_btn.click(
             fn=perform_kaggle_download,
             inputs=[kaggle_slug],
             outputs=[download_status, dataset_input]
         )
-        
+
         # Wire up Predictor
         predict_btn.click(
             fn=predict_custom_model,
             inputs=[predictor_json],
             outputs=[prediction_output]
         )
-        
+
         # Wire up Launch Pipeline (Standard)
         launch_btn.click(
             fn=run_data_science_pipeline,
@@ -2223,7 +2232,7 @@ def launch_ui():
                 pipeline_summary_html
             ]
         )
-        
+
         # Wire up Abort Button
         abort_btn.click(
             fn=abort_pipeline,
@@ -2251,7 +2260,7 @@ def launch_ui():
                 document.documentElement.classList.add('dark');
             }"""
         )
-        
+
     return demo
 
 if __name__ == "__main__":

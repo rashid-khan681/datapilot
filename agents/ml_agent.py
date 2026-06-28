@@ -40,9 +40,9 @@ def send_status(message: str, status: str = "running"):
     except Exception as e:
         logger.warning(f"Failed to broadcast status update: {e}")
 
-def train_model(file_path: str, target: str = None, test_file_path: str = None, goal: str = None, force_continue: bool = False) -> dict:
+def train_model(file_path: str, target: str | None = None, test_file_path: str | None = None, goal: str | None = None, force_continue: bool = False) -> dict:
     """Trains the best ML model on the dataset by calling the MCP server.
-    
+
     Args:
         file_path: Path to the training dataset.
         target: Target column name. If None, auto-detected.

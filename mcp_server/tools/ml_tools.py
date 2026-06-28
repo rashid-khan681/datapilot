@@ -18,18 +18,18 @@ class YesNoLabelEncoder:
         self.no_val = no_val
         self.flipped = flipped
         self.classes_ = np.array([no_val, yes_val]) if not flipped else np.array([yes_val, no_val])
-        
+
     def fit(self, y):
         return self
-        
+
     def transform(self, y):
         mapping = {self.no_val: 0, self.yes_val: 1} if not self.flipped else {self.no_val: 1, self.yes_val: 0}
         return pd.Series(y).map(mapping).fillna(0).astype(int).values
-        
+
     def fit_transform(self, y):
         self.fit(y)
         return self.transform(y)
-        
+
     def inverse_transform(self, y_encoded):
         mapping = {0: self.no_val, 1: self.yes_val} if not self.flipped else {0: self.yes_val, 1: self.no_val}
         return np.array([mapping.get(int(v), self.no_val) for v in y_encoded])
@@ -60,16 +60,16 @@ def _check_code_safety(code: str) -> list[str]:
 
 def execute_python_code(code: str, file_path: str) -> dict:
     """Executes python code for data analysis or model training in a local sandbox.
-    
+
     The code will be executed inside the outputs directory, meaning any generated files (e.g. plots, saved models)
     will automatically be saved in the outputs folder.
-    
+
     To load the dataset, use:
     ```python
     import pandas as pd
     df = pd.read_csv(dataset_path)
     ```
-    
+
     Args:
         code: The Python code string to execute.
         file_path: The path to the CSV file.
@@ -152,12 +152,12 @@ dataset_path = {file_path!r}
         }
 
 
-def train_model(file_path: str, target: str = None, test_file_path: str = None, goal: str = None, force_continue: bool = False) -> dict:
+def train_model(file_path: str, target: str | None = None, test_file_path: str | None = None, goal: str | None = None, force_continue: bool = False) -> dict:
     """
     Automatically preprocesses data, trains multiple machine learning models,
     evaluates their performance, selects the best model, saves serialization files,
     plots feature importances, and generates predictions if a test dataset is provided.
-    
+
     The auto training pipeline processes:
       1. AUTO-DETECT PROBLEM TYPE: Checks target values to detect Classification or Regression
       2. AUTO PREPROCESSING: Drops ID columns, imputes missing values (median/mode), scales features, and encodes categories
@@ -166,14 +166,14 @@ def train_model(file_path: str, target: str = None, test_file_path: str = None, 
       5. MODEL SERIALIZATION: Saves preprocessing pipeline, best estimator, and unified model.joblib
       6. FEATURE IMPORTANCE: Identifies and saves interactive top 10 Plotly chart
       7. PREDICTIONS: Generates outputs/predictions.csv if test_file_path is provided
-      
+
     Args:
         file_path: Path to the training CSV dataset.
         target: Target column name. If None, auto-detected.
         test_file_path: Optional path to test CSV dataset.
         goal: Optional analytical or machine learning goal of the user.
         force_continue: Optional boolean to proceed despite low confidence warning.
-        
+
     Returns:
         Structured results dictionary with model scores, best model, and file paths.
     """
@@ -204,14 +204,14 @@ def train_model(file_path: str, target: str = None, test_file_path: str = None, 
             "salary": ["salary", "income"],
             "income": ["salary", "income"]
         }
-        
+
         matched_keywords = []
         for key, search_words in keyword_mapping.items():
             if key in goal_lower:
                 matched_keywords.extend(search_words)
-        
+
         matched_keywords = list(dict.fromkeys(matched_keywords))
-        
+
         if not matched_keywords and goal_lower:
             import re
             words = re.findall(r'\b\w+\b', goal_lower)
@@ -219,12 +219,12 @@ def train_model(file_path: str, target: str = None, test_file_path: str = None, 
             for w in words:
                 if w not in stopwords and len(w) > 2:
                     matched_keywords.append(w)
-                    
+
         if matched_keywords:
             import difflib
             best_col = None
             best_score = 0.0
-            
+
             for col in df.columns:
                 col_lower = col.lower()
                 if col_lower in ['id', 'uuid', 'patient_id', 'loan_id', 'customer_id', 'order_id', 'passengerid']:
@@ -236,7 +236,7 @@ def train_model(file_path: str, target: str = None, test_file_path: str = None, 
                     if ratio > best_score:
                         best_score = ratio
                         best_col = col
-            
+
             if best_col and best_score >= 0.6:
                 detected_target = best_col
                 detected_confidence = 90 if best_score >= 1.2 else 80
@@ -291,14 +291,11 @@ def train_model(file_path: str, target: str = None, test_file_path: str = None, 
             print(f"Overriding target '{target}' with goal-based detected target '{detected_target}' (confidence: {detected_confidence}%)")
             target = detected_target
             confidence = detected_confidence
-            method = detected_method
         else:
             confidence = 100
-            method = "Explicitly provided"
     else:
         target = detected_target
         confidence = detected_confidence
-        method = detected_method
 
     if target not in df.columns:
         raise ValueError(f"Specified target column '{target}' not found in dataset columns.")
@@ -330,12 +327,12 @@ def train_model(file_path: str, target: str = None, test_file_path: str = None, 
 
     # 2. AUTO PREPROCESSING & DATA LEAKAGE DETECTION
     print("🛠️ Preprocessing and cleaning dataset...")
-    
+
     # Target Encoding first, so we can check correlation against numeric target
     from sklearn.preprocessing import LabelEncoder
     target_encoder = None
     y_encoded = df[target].copy()
-    
+
     if problem_type == "classification":
         unique_vals = list(df[target].unique())
         yes_vals = ["yes", "y", "true", "1", "1.0", "defaulted", "churned", "positive", "sick", "has condition"]
@@ -348,26 +345,26 @@ def train_model(file_path: str, target: str = None, test_file_path: str = None, 
                 yes_val = val
             elif val_str in no_vals:
                 no_val = val
-                
+
         if len(unique_vals) == 2 and (yes_val is not None or no_val is not None):
             if yes_val is None:
-                yes_val = [v for v in unique_vals if v != no_val][0]
+                yes_val = next(v for v in unique_vals if v != no_val)
             if no_val is None:
-                no_val = [v for v in unique_vals if v != yes_val][0]
-            
+                no_val = next(v for v in unique_vals if v != yes_val)
+
             target_encoder = YesNoLabelEncoder(yes_val, no_val, flipped=False)
             y_encoded = pd.Series(target_encoder.fit_transform(df[target]))
         else:
             target_encoder = LabelEncoder()
             y_encoded = pd.Series(target_encoder.fit_transform(df[target]))
-            
+
         # MEDICAL DOMAIN VALIDATION
         columns_lower = [c.lower() for c in df.columns]
         is_medical_domain = False
         medical_keywords = ['blood', 'pressure', 'cholesterol', 'heart', 'disease', 'patient', 'bmi', 'glucose', 'insulin', 'tumor', 'cancer', 'diagnosis', 'symptoms', 'ecg', 'pulse', 'hemoglobin', 'platelet', 'kidney']
         if any(kw in col for kw in medical_keywords for col in columns_lower) or (goal and any(kw in goal.lower() for kw in medical_keywords)):
             is_medical_domain = True
-            
+
         if is_medical_domain:
             test_col = None
             for col in df.columns:
@@ -385,7 +382,7 @@ def train_model(file_path: str, target: str = None, test_file_path: str = None, 
                         y_encoded = pd.Series(target_encoder.fit_transform(df[target]))
                     else:
                         y_encoded = 1 - y_encoded
-                        
+
         print("✅ Class encoding verified:")
         print(f"   Yes (has {target}) = class 1")
         print(f"   No (no {target}) = class 0")
@@ -402,7 +399,7 @@ def train_model(file_path: str, target: str = None, test_file_path: str = None, 
         is_id_name = col_lower.endswith("id") or col_lower.startswith("id_") or col_lower in ["id", "uuid", "pk", "key", "passengerid"]
         is_unique = (df[col].nunique() == len(df))
         is_object = df[col].dtype == object or df[col].dtype == bool
-        
+
         if is_id_name or (is_unique and is_object) or (df[col].nunique() == len(df) and pd.api.types.is_numeric_dtype(df[col])):
             id_cols.append(col)
             print(f"Dropped ID column: {col}")
@@ -421,7 +418,7 @@ def train_model(file_path: str, target: str = None, test_file_path: str = None, 
     for col in df.columns:
         if col == target or col in id_cols or col in constant_cols:
             continue
-            
+
         # Group target by this column and see if all groups have only 1 unique target value
         if problem_type == "classification" and df[col].nunique() > 1 and df[col].nunique() < len(df):
             grouped_nunique = df.groupby(col)[target].nunique()
@@ -429,7 +426,7 @@ def train_model(file_path: str, target: str = None, test_file_path: str = None, 
                 leakage_cols.append(col)
                 print(f"Dropped leakage column: {col} (perfectly separates target)")
                 continue
-                
+
         col_series = df[col]
         if col_series.dtype == object or col_series.dtype == bool or not pd.api.types.is_numeric_dtype(col_series):
             try:
@@ -438,7 +435,7 @@ def train_model(file_path: str, target: str = None, test_file_path: str = None, 
                 continue
         else:
             col_numeric = pd.to_numeric(col_series, errors='coerce')
-            
+
         valid_idx = y_encoded.notna() & col_numeric.notna()
         if valid_idx.sum() > 1:
             corr = np.abs(np.corrcoef(col_numeric[valid_idx], y_encoded[valid_idx])[0, 1])
@@ -455,13 +452,21 @@ def train_model(file_path: str, target: str = None, test_file_path: str = None, 
 
     # Build preprocessing column transformer & Training loop with realistic accuracy cap
     from sklearn.compose import ColumnTransformer
+    from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
     from sklearn.impute import SimpleImputer
+    from sklearn.linear_model import LogisticRegression, Ridge
+    from sklearn.metrics import (
+        accuracy_score,
+        f1_score,
+        mean_absolute_error,
+        mean_squared_error,
+        precision_score,
+        r2_score,
+        recall_score,
+    )
+    from sklearn.model_selection import cross_val_score, train_test_split
     from sklearn.pipeline import Pipeline
     from sklearn.preprocessing import OrdinalEncoder, StandardScaler
-    from sklearn.model_selection import train_test_split, cross_val_score
-    from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-    from sklearn.linear_model import LogisticRegression, Ridge
-    from sklearn.metrics import accuracy_score, f1_score, mean_absolute_error, mean_squared_error, precision_score, r2_score, recall_score
 
     max_retries = 3
     retry_count = 0
@@ -550,7 +555,7 @@ def train_model(file_path: str, target: str = None, test_file_path: str = None, 
                     f1 = f1_score(y_val, y_pred, average='macro')
                     prec = precision_score(y_val, y_pred, average='macro', zero_division=0)
                     rec = recall_score(y_val, y_pred, average='macro', zero_division=0)
-                    
+
                     # 5-fold cross validation score
                     cv_score_arr = cross_val_score(model, X_train_proc, y_train, cv=5, scoring='accuracy')
                     cv_mean = float(np.mean(cv_score_arr))
@@ -567,7 +572,7 @@ def train_model(file_path: str, target: str = None, test_file_path: str = None, 
                     rmse = np.sqrt(mean_squared_error(y_val, y_pred))
                     mae = mean_absolute_error(y_val, y_pred)
                     r2 = r2_score(y_val, y_pred)
-                    
+
                     # 5-fold cross validation score
                     cv_score_arr = cross_val_score(model, X_train_proc, y_train, cv=5, scoring='r2')
                     cv_mean = float(np.mean(cv_score_arr))
@@ -579,10 +584,10 @@ def train_model(file_path: str, target: str = None, test_file_path: str = None, 
                         "CV-Score": round(cv_mean, 4),
                         "primary_metric": r2
                     }
-                
+
                 trained_models[name] = model
                 print(f"    👉 Finished. Primary Score: {scores[name]['primary_metric']:.4f}")
-                
+
                 # Check overfitting
                 diff = np.abs(scores[name]["primary_metric"] - cv_mean)
                 if diff > 0.10:
@@ -636,9 +641,9 @@ def train_model(file_path: str, target: str = None, test_file_path: str = None, 
             capped_acc = 0.85
         else:
             capped_acc = 0.87
-            
+
         print(f"Capping suspicious 100% accuracy to realistic level: {capped_acc:.0%}")
-        
+
         if problem_type == "classification":
             best_scores["Accuracy"] = capped_acc
             best_scores["primary_metric"] = capped_acc
@@ -650,7 +655,7 @@ def train_model(file_path: str, target: str = None, test_file_path: str = None, 
             best_scores["R2-Score"] = capped_acc
             best_scores["primary_metric"] = capped_acc
             best_scores["CV-Score"] = round(capped_acc - 0.04, 4)
-            
+
         scores[best_model_name] = best_scores
         best_val = capped_acc
         accuracy_warning_msg = "Warning: Suspiciously high accuracy detected. Removed potential leakage features."
@@ -698,7 +703,7 @@ def train_model(file_path: str, target: str = None, test_file_path: str = None, 
 
         # Generate Plotly Feature Importance chart
         import plotly.express as px
-        feats, vals = zip(*sorted_importance)
+        feats, vals = zip(*sorted_importance, strict=False)
         fig_importance = px.bar(
             x=vals,
             y=feats,
@@ -708,45 +713,45 @@ def train_model(file_path: str, target: str = None, test_file_path: str = None, 
             color=vals,
             color_continuous_scale=[[0.0, "#6366f1"], [1.0, "#8b5cf6"]] # Indigo-to-purple theme gradient
         )
-        
+
         # Premium dark template styling to match Dashboard theme
-        layout_update = dict(
-            template="plotly_dark",
-            paper_bgcolor="#111118", # Sleek background container matching app card theme
-            plot_bgcolor="rgba(10, 10, 15, 0.5)", # Subtle dark interior background
-            font=dict(color="#f8fafc", family="Inter, sans-serif"),
-            title=dict(
-                font=dict(color="#f8fafc", size=16, family="Inter, sans-serif"),
-                pad=dict(b=12),
-                x=0.05
-            ),
-            xaxis=dict(
-                gridcolor="#2a2a3a",
-                linecolor="#2a2a3a",
-                zerolinecolor="#2a2a3a",
-                title=dict(font=dict(color="#94a3b8", size=13))
-            ),
-            yaxis=dict(
-                gridcolor="#2a2a3a",
-                linecolor="#2a2a3a",
-                zerolinecolor="#2a2a3a",
-                title=dict(font=dict(color="#94a3b8", size=13)),
-                categoryorder='total ascending'
-            ),
-            coloraxis=dict(
-                showscale=False # Remove color scale legend since it is a bar chart
-            ),
-            margin=dict(l=120, r=40, t=75, b=60) # Increased left margin to prevent text cutoff
-        )
+        layout_update = {
+            "template": "plotly_dark",
+            "paper_bgcolor": "#111118", # Sleek background container matching app card theme
+            "plot_bgcolor": "rgba(10, 10, 15, 0.5)", # Subtle dark interior background
+            "font": {"color": "#f8fafc", "family": "Inter, sans-serif"},
+            "title": {
+                "font": {"color": "#f8fafc", "size": 16, "family": "Inter, sans-serif"},
+                "pad": {"b": 12},
+                "x": 0.05
+            },
+            "xaxis": {
+                "gridcolor": "#2a2a3a",
+                "linecolor": "#2a2a3a",
+                "zerolinecolor": "#2a2a3a",
+                "title": {"font": {"color": "#94a3b8", "size": 13}}
+            },
+            "yaxis": {
+                "gridcolor": "#2a2a3a",
+                "linecolor": "#2a2a3a",
+                "zerolinecolor": "#2a2a3a",
+                "title": {"font": {"color": "#94a3b8", "size": 13}},
+                "categoryorder": 'total ascending'
+            },
+            "coloraxis": {
+                "showscale": False # Remove color scale legend since it is a bar chart
+            },
+            "margin": {"l": 120, "r": 40, "t": 75, "b": 60} # Increased left margin to prevent text cutoff
+        }
         fig_importance.update_layout(**layout_update)
         fig_importance.update_traces(marker_line_color='#111118', marker_line_width=1, opacity=0.9)
         chart_path = os.path.join(OUTPUTS_DIR, "ml_feature_importance.html")
         fig_importance.write_html(chart_path, include_plotlyjs="cdn")
-        
+
         # Inject Google Font Inter into Feature Importance chart
         if os.path.exists(chart_path):
             try:
-                with open(chart_path, "r", encoding="utf-8") as f:
+                with open(chart_path, encoding="utf-8") as f:
                     content = f.read()
                 font_link = '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">'
                 content = content.replace("<head>", f"<head>{font_link}")
@@ -846,7 +851,7 @@ def train_model(file_path: str, target: str = None, test_file_path: str = None, 
             "predictions": pred_path
         }
     }
-    
+
     if accuracy_warning_msg:
         results["accuracy_warning"] = f"Warning: Suspiciously high accuracy detected. Removed potential leakage features. New accuracy: {best_scores['primary_metric']:.0%}"
 

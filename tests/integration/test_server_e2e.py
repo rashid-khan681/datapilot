@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 import subprocess
@@ -80,7 +79,7 @@ def wait_for_server(timeout: int = 30, interval: int = 1) -> bool:
 def server_fixture(request: Any) -> Iterator[subprocess.Popen[str]]:
     """Pytest fixture to start and stop the server for testing."""
     logger.info("Starting server process")
-    
+
     # Check if a server is already running on port 8000
     already_running = False
     try:

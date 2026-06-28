@@ -1,8 +1,9 @@
+import asyncio
+import json
 import os
 import sys
 import time
-import asyncio
-import json
+
 import requests
 from dotenv import load_dotenv
 
@@ -13,6 +14,7 @@ if os.getenv("GOOGLE_API_KEY") and not os.getenv("GEMINI_API_KEY"):
 
 # Suppress ADK/GenAI internal tracebacks and logging warnings to keep the demo clean
 import logging
+
 logging.disable(logging.WARNING)
 
 from agents.orchestrator import run_pipeline
@@ -33,16 +35,16 @@ def print_header(title):
 
 async def main():
     print_header("DataPilot Autonomous Multi-Agent Platform Demo")
-    
+
     workspace_root = os.path.dirname(os.path.abspath(__file__))
     uploads_dir = os.path.join(workspace_root, "uploads")
     outputs_dir = os.path.join(workspace_root, "outputs")
-    
+
     os.makedirs(uploads_dir, exist_ok=True)
     os.makedirs(outputs_dir, exist_ok=True)
-    
+
     dataset_path = os.path.join(uploads_dir, "titanic.csv")
-    
+
     # 1. Download dataset
     if not os.path.exists(dataset_path):
         print(f"{CYAN}• Download Sample Titanic Dataset...{RESET}")
@@ -64,45 +66,45 @@ async def main():
     print(f"{CYAN}• Goal: Predict which passengers survived{RESET}")
     print(f"{CYAN}• Auto-retry & 30s timeouts active on all agents.{RESET}")
     print(f"{CYAN}• Running pipeline...{RESET}")
-    
+
     start_time = time.time()
-    
+
     # Run the pipeline with force_continue=True to complete fully
     # Redirect stderr to suppress GenAI/ADK task cleanup tracebacks from console
     import contextlib
     import io
-    
+
     f = io.StringIO()
     with contextlib.redirect_stderr(f):
         result = await run_pipeline(dataset_path, "Predict which passengers survived", force_continue=True)
-    
+
     elapsed = time.time() - start_time
-    
+
     # 3. Print Results
     print_header("Pipeline Completed Execution")
-    
+
     if result.get("status") == "success":
         print(f"{GREEN}{BOLD}✓ Pipeline finished successfully in {elapsed:.2f} seconds!{RESET}")
-        
+
         # ML Result
         ml = result.get("ml_results", {})
         print(f"\n{GREEN}{BOLD}[ML Agent Findings]{RESET}")
         print(f"  • Best Model: {ml.get('model_name')}")
         print(f"  • Accuracy/Metric Score: {ml.get('accuracy_score')}")
-        print(f"  • Feature Importance Top 5:")
+        print("  • Feature Importance Top 5:")
         for feat in ml.get("feature_importance_top5", []):
             print(f"    - {feat.get('name')}: {feat.get('importance')}")
         print(f"  • Business Insight: {ml.get('business_insight')}")
-        
+
         # Security Result
         sec = result.get("security_results", {})
         print(f"\n{YELLOW}{BOLD}[Security Agent Findings]{RESET}")
         print(f"  • Security Score: {sec.get('security_score')}/100")
         print(f"  • Is Safe to Proceed: {sec.get('safe_to_proceed')}")
-        print(f"  • Audited Issues:")
+        print("  • Audited Issues:")
         for issue in sec.get("issues_list", []):
             print(f"    - [{issue.get('severity')}] {issue.get('message')} (Suggestion: {issue.get('suggestion')})")
-            
+
         # Verify output files
         print_header("Verifying Output Files")
         expected_files = [
@@ -115,18 +117,18 @@ async def main():
             "eda_correlation_heatmap.html",
             "ml_feature_importance.html"
         ]
-        
+
         for file in expected_files:
             file_path = os.path.join(outputs_dir, file)
             if os.path.exists(file_path):
                 print(f"{GREEN}✓ Found output file: {file}{RESET}")
             else:
                 print(f"{RED}✗ Missing output file: {file}{RESET}")
-                
+
         # Print metrics summary
         metrics_file = os.path.join(outputs_dir, "metrics.json")
         if os.path.exists(metrics_file):
-            with open(metrics_file, "r") as f:
+            with open(metrics_file) as f:
                 metrics = json.load(f)
             print_header("Performance Summary")
             print(f"{CYAN}• Dataset size processed: {metrics.get('dataset_size_mb')} MB")

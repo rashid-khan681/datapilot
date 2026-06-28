@@ -1,0 +1,14 @@
+.env
+__pycache__
+uploads/
+outputs/
+*.pkl
+*.csv
+.DS_Store
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.joblib
+*.png
+*.log
+!assets/*.png

@@ -1,0 +1,11 @@
+.env
+__pycache__
+.git
+.venv
+.pytest_cache
+uploads/
+outputs/
+*.pkl
+*.joblib
+node_modules
+*.log

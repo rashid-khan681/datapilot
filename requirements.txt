@@ -12,8 +12,8 @@ python-dotenv
 plotly
 matplotlib
 seaborn
-pickle5
 requests
+
 pydantic
 mcp
 jinja2

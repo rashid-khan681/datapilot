@@ -12,8 +12,9 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 def main():
     # Detect Docker container environment or environment override flags
-    is_docker = os.path.exists("/.dockerenv") or os.environ.get("DOCKER_RUN")
+    is_docker = os.path.exists("/.dockerenv") or os.environ.get("DOCKER_RUN") or os.environ.get("PORT") or os.environ.get("K_SERVICE")
     default_host = "0.0.0.0" if is_docker else "127.0.0.1"
+
 
     if len(sys.argv) > 1:
         command = sys.argv[1].lower()

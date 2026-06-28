@@ -207,6 +207,13 @@ input:focus, textarea:focus, select:focus {
     border-color: rgba(239, 68, 68, 0.4);
     box-shadow: 0 0 15px rgba(239, 68, 68, 0.08);
 }
+.status-indicator.status-ready {
+    border-color: rgba(245, 158, 11, 0.2);
+}
+.status-indicator.status-ready:hover {
+    border-color: rgba(245, 158, 11, 0.4);
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.08);
+}
 .dot {
     height: 8px;
     width: 8px;
@@ -229,6 +236,11 @@ input:focus, textarea:focus, select:focus {
     box-shadow: 0 0 6px rgba(239, 68, 68, 0.6), 0 0 12px rgba(239, 68, 68, 0.3);
     animation: dotPulseRed 2s ease-in-out infinite;
 }
+.dot-yellow {
+    background-color: #F59E0B;
+    box-shadow: 0 0 6px rgba(245, 158, 11, 0.6), 0 0 12px rgba(245, 158, 11, 0.3);
+    animation: dotPulseYellow 2s ease-in-out infinite;
+}
 @keyframes dotPulseGreen {
     0%, 100% { box-shadow: 0 0 4px rgba(16, 185, 129, 0.4), 0 0 8px rgba(16, 185, 129, 0.15); }
     50% { box-shadow: 0 0 8px rgba(16, 185, 129, 0.8), 0 0 16px rgba(16, 185, 129, 0.3); }
@@ -241,6 +253,11 @@ input:focus, textarea:focus, select:focus {
     0%, 100% { box-shadow: 0 0 4px rgba(239, 68, 68, 0.4), 0 0 8px rgba(239, 68, 68, 0.15); }
     50% { box-shadow: 0 0 8px rgba(239, 68, 68, 0.8), 0 0 16px rgba(239, 68, 68, 0.3); }
 }
+@keyframes dotPulseYellow {
+    0%, 100% { box-shadow: 0 0 4px rgba(245, 158, 11, 0.4), 0 0 8px rgba(245, 158, 11, 0.15); }
+    50% { box-shadow: 0 0 8px rgba(245, 158, 11, 0.8), 0 0 16px rgba(245, 158, 11, 0.3); }
+}
+
 
 /* Section 2: Hero Section — Premium Redesign */
 .hero-wrapper {
@@ -973,12 +990,13 @@ def check_backend_status() -> str:
     agents_dot = "dot-green" # Agents are always ready when UI loads or pipeline is idle
     agents_text = "Agents Ready"
 
-    model_dot = "dot-blue" if model_loaded else "dot-red"
-    model_text = "Model Loaded" if model_loaded else "Model Offline"
+    model_dot = "dot-blue" if model_loaded else "dot-yellow"
+    model_text = "Model Loaded" if model_loaded else "Ready to Train"
 
     mcp_class = "status-online" if mcp_ok else "status-offline"
     agents_class = "status-online"
-    model_class = "status-active" if model_loaded else "status-offline"
+    model_class = "status-active" if model_loaded else "status-ready"
+
 
     return f"""
     <div class="status-indicators">

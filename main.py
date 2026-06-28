@@ -29,10 +29,11 @@ def main():
             cli_app()
         elif command == "ui":
             # Run UI
-            print(f"Starting DataPilot Gradio Web UI on {default_host}...")
+            ui_port = int(os.environ.get("PORT", "8080"))
+            print(f"Starting DataPilot Gradio Web UI on {default_host} (port {ui_port})...")
             from ui.app import WORKSPACE_ROOT, launch_ui
             demo = launch_ui()
-            demo.queue().launch(server_name=default_host, server_port=8080, allowed_paths=[WORKSPACE_ROOT])
+            demo.queue().launch(server_name=default_host, server_port=ui_port, allowed_paths=[WORKSPACE_ROOT])
         else:
             print("Unknown command. Available commands: mcp, cli, ui")
             print("Usage:")
@@ -41,10 +42,12 @@ def main():
             print("  python main.py cli --file F --goal G  # Runs the pipeline in CLI")
     else:
         # Default to launching Web UI
-        print(f"Starting DataPilot Gradio Web UI on {default_host}...")
+        ui_port = int(os.environ.get("PORT", "8080"))
+        print(f"Starting DataPilot Gradio Web UI on {default_host} (port {ui_port})...")
         from ui.app import WORKSPACE_ROOT, launch_ui
         demo = launch_ui()
-        demo.queue().launch(server_name=default_host, server_port=8080, allowed_paths=[WORKSPACE_ROOT])
+        demo.queue().launch(server_name=default_host, server_port=ui_port, allowed_paths=[WORKSPACE_ROOT])
+
 
 if __name__ == "__main__":
     main()
